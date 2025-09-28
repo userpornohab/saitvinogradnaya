@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Body
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Body
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -7,7 +7,7 @@ import os
 from typing import List
 from database.database import get_db
 from models.room import Room, RoomPhoto, PricePeriod, Amenity, RoomAmenity, Booking, RoomBedOption, BedOption
-from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomFilter, RoomUpdate
+from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomFilter, RoomUpdate, RoomBase
 from auth.dependencies import check_superuser
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
@@ -122,25 +122,52 @@ def delete_room(room_id: int, db: Session = Depends(get_db)):
 def get_all_rooms(db: Session = Depends(get_db)):
     return db.query(Room).all()
 
+
+@router.get("/admin/", response_model=List[RoomBase])
+def get_all_rooms_smoll(db: Session = Depends(get_db)):
+    return db.query(Room).all()
+
+
+
 @router.post("/filter", response_model=List[RoomResponse])
 def filter_rooms(filter_data: RoomFilter, db: Session = Depends(get_db)):
+    # Получаем все комнаты, подходящие по количеству гостей
     rooms = db.query(Room).filter(Room.max_guests >= filter_data.guests).all()
     available_rooms = []
-    last_day = filter_data.check_out_date - timedelta(days=1)
-
+    
+    # Вычисляем количество дней в запрашиваемом периоде
+    total_days = (filter_data.check_out_date - filter_data.check_in_date).days
+    
     for room in rooms:
-        
+        # Получаем все подходящие ценовые периоды
         price_periods = db.query(PricePeriod).filter(
             PricePeriod.room_id == room.id,
             PricePeriod.number_of_guests >= filter_data.guests,
             PricePeriod.end_date >= filter_data.check_in_date,
-            PricePeriod.start_date <= last_day
+            PricePeriod.start_date <= filter_data.check_out_date
         ).all()
         
-        # 2. Если нет ни одного подходящего периода - комната не подходит
-        if not price_periods:
+        # Проверяем, что все дни периода покрыты
+        all_days_covered = True
+        for day in range(total_days):
+            current_date = filter_data.check_in_date + timedelta(days=day)
+            
+            # Проверяем, покрыта ли текущая дата каким-либо периодом
+            day_covered = False
+            for period in price_periods:
+                if period.start_date <= current_date <= period.end_date:
+                    day_covered = True
+                    break
+            
+            if not day_covered:
+                all_days_covered = False
+                break
+        
+        # Если не все дни покрыты, пропускаем комнату
+        if not all_days_covered:
             continue
         
+        # Проверяем доступность комнаты по бронированиям
         overlapping_bookings = db.query(Booking).filter(
             Booking.room_id == room.id,
             Booking.check_in_date < filter_data.check_out_date,

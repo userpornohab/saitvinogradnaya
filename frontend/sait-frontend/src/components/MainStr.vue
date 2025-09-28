@@ -29,51 +29,51 @@
             <!-- Первая строка -->
             <div class="activity-card">
                 <div class="activity-icon">
-                    <i class="fas fa-ship"></i>
+                     <img class="activiti_svg" src="@/assets/icons/shop.svg" alt="Назад">
                 </div>
-                <h3 class="activity-title">Яхта</h3>
-                <div class="activity-desc">Морские экскурсии</div>
+                <h3 class="activity-title">Магазины и кафе
+</h3>
+                
             </div>
             
             <div class="activity-card">
                 <div class="activity-icon">
-                    <i class="fas fa-fish"></i>
+                     <img class="activiti_svg" src="@/assets/icons/place.svg" alt="Назад">
                 </div>
-                <h3 class="activity-title">Рыбалка</h3>
-                <div class="activity-desc">Морская и береговая</div>
+                <h3 class="activity-title">Поездки по Крыму</h3>
+                
             </div>
             
             <div class="activity-card">
                 <div class="activity-icon">
-                    <i class="fas fa-water"></i>
+                     <img class="activiti_svg" src="@/assets/icons/games.svg" alt="Назад">
                 </div>
-                <h3 class="activity-title">Дайвинг</h3>
-                <div class="activity-desc">Подводный мир</div>
+                <h3 class="activity-title">Пляжные развлечения
+</h3>
             </div>
             
             <!-- Вторая строка -->
             <div class="activity-card">
                 <div class="activity-icon">
-                    <i class="fas fa-sun"></i>
+                     <img class="activiti_svg" src="@/assets/icons/beach.svg" alt="Назад">
                 </div>
-                <h3 class="activity-title">Пляжный отдых</h3>
-                <div class="activity-desc">Золотые пески</div>
+                <h3 class="activity-title">Пляж бесплатный</h3>
+
             </div>
             
             <div class="activity-card">
                 <div class="activity-icon">
-                    <i class="fas fa-sailboat"></i>
+                     <img class="activiti_svg" src="@/assets/icons/jur.svg" alt="Назад">
                 </div>
-                <h3 class="activity-title">Серфинг</h3>
-                <div class="activity-desc">Волны и адреналин</div>
+                <h3 class="activity-title">Знаковые места</h3>
+                
             </div>
             
             <div class="activity-card">
                 <div class="activity-icon">
-                    <i class="fas fa-umbrella-beach"></i>
+                     <img class="activiti_svg" src="@/assets/icons/football.svg" alt="Назад">
                 </div>
-                <h3 class="activity-title">Пикники</h3>
-                <div class="activity-desc">На берегу моря</div>
+                <h3 class="activity-title">Стадион и парк</h3>
             </div>
         </div>
   </div>
@@ -194,6 +194,7 @@ export default {
   .main_vrapper{
     max-width: 1120px;
     display: flex;
+    padding: 30px;
     flex-direction: column;
     align-items: center;
     margin: 0 auto;
@@ -273,7 +274,6 @@ export default {
     z-index: -1;
   }
 .section-title {
-            color: white;
             text-align: center;
             margin-bottom: 40px;
             font-size: 2.5rem;
@@ -281,11 +281,13 @@ export default {
         }
 
         .activities-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 18px;
-            max-width: 1120px;
-        }
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 20px;
+    max-width: 1120px;
+    margin: 40px 0;
+}
 
         .activity-card {
             height: 70px;
@@ -293,6 +295,7 @@ export default {
             align-items: center;
             text-align: center;
             justify-content: center;
+            justify-content: space-around;
             gap: 12px;
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(12px);
@@ -304,29 +307,29 @@ export default {
         }
 
         .activity-card:hover {
-            transform: translateY(-10px);
+            transform: translateY(-1px);
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
         }
 
         .activity-icon {
             font-size: 2rem;
-            color: white;
 
             text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .activity-title {
-            color: white;
             font-size: 1.3rem;
             font-weight: 600;
         }
 
         .activity-desc {
-            color: rgba(255, 255, 255, 0.9);
             font-size: 0.9rem;
             line-height: 1.4;
             text-align: center;
             margin-top: 3px;
+        }
+        .activiti_svg{
+          width: clamp(30px, 3vw, 50px);
         }
 
         /* Адаптивность */

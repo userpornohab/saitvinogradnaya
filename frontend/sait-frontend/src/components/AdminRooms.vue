@@ -17,20 +17,23 @@
           class="room-card"
           :class="{selected: selectedRoomId === room.id}"
         >
-        <div class="room-header">
-          <h4>{{ room.title }}</h4>
-          <button @click.stop="deleteRoom(room.id)" title="Удалить">🗑</button>
-        </div>
           <img 
             v-if="room.photos.length" 
             :src="getMainPhoto(room.photos)" 
             class="room-thumb"
           >
-          <div class="room-actions">
-            <button @click.stop="togglePriceManagement(room)" title="Управление ценами">💰</button>
-            <button @click.stop="toggleBookingManagement(room)" title="Бронирования">📅</button>
-            <button @click="selectRoom(room)" title="Редактировать">✏️</button>
+          <div>
+              <div class="room-header">
+              <h4>{{ room.title }}</h4>
+              <button @click.stop="deleteRoom(room.id)" title="Удалить">🗑</button>
+            </div>
+            <div class="room-actions">
+              <button @click.stop="togglePriceManagement(room)" title="Управление ценами">💰</button>
+              <button @click.stop="toggleBookingManagement(room)" title="Бронирования">📅</button>
+              <button @click="selectRoom(room)" title="Редактировать">✏️</button>
+            </div>
           </div>
+          
         </div>
         
       </div>
@@ -999,7 +1002,7 @@ cancelEditBooking(bookingId) {
 
 
 async deleteBooking(bookingId) {
-  if (confirm('Вы уверены, что хотите удалить этот номер?')){
+  if (confirm('Вы уверены, что хотите удалить эту бронь?')){
     try {
         await axios.delete(`http://localhost:8000/bookings/${bookingId}`, {
           headers: {
@@ -1555,6 +1558,8 @@ calculateOccupiedDates() {
 }
 
 .room-card {
+  background: #f8f9fa;
+  display: flex;
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;
@@ -1563,7 +1568,7 @@ calculateOccupiedDates() {
 }
 
 .room-card.selected {
-  box-shadow: 0 0 0 2px #2196F3;
+  box-shadow: 0 0 0 1px #99c3e6;
   transform: translateY(-2px);
 }
 
@@ -1572,16 +1577,19 @@ calculateOccupiedDates() {
 }
 
 .room-header {
-  padding: 1rem;
-  background: #f8f9fa;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.room-header button{
+  background: none;
+}
+
+
 .room-thumb {
-  width: 100%;
-  height: 180px;
+  max-width: 100px;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
 }
 
@@ -1829,9 +1837,10 @@ button {
 }
 
 .room-card {
+  display: flex;
+  gap: 30px;
   border: 1px solid #eee;
   border-radius: 8px;
-  padding: 1.2rem;
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -1841,22 +1850,26 @@ button {
 }
 
 .room-card.selected {
-  border-color: #3498db;
+  border-color: #98c0db;
   background: #f8fbff;
 }
 
 .room-thumb {
   width: 100%;
-  height: 180px;
   object-fit: cover;
   border-radius: 6px;
-  margin-bottom: 1rem;
 }
 
+.room-actions{
+  display: flex;
+  gap: 5px;
+  padding: 6px 0;
 
+}
 .room-actions button {
-  margin-left: 0.5rem;
-  padding: 0.4rem 0.8rem;
+  background: none;
+  border: 1px solid ;
+  padding: 0.8rem 1rem;
 }
 
 /* Уведомления */

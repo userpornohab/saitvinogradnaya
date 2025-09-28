@@ -35,7 +35,7 @@ def calculate_booking_price(
         # Если вообще нет подходящих периодов
         raise HTTPException(
             status_code=400,
-            detail=f"No price periods found for {number_of_guests} guests or more"
+            detail=f"Не найдено цен для {number_of_guests} гостей. Создайте цены на эти даты."
         )
 
     total_price = 0.0
@@ -62,7 +62,7 @@ def calculate_booking_price(
         if best_period is None:
             raise HTTPException(
                 status_code=400,
-                detail=f"No price found for date {current_date} for {number_of_guests} guests"
+                detail=f"Цена на эту дату не найдена {current_date} для  {number_of_guests} гостей"
             )
         
         total_price += best_period.price

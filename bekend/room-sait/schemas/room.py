@@ -110,6 +110,7 @@ class BookingResponse(BookingUpdate):
         orm_mode = True
 
 class RoomBase(BaseModel):
+    id: int
     title: str
     description: str
     max_guests: int
@@ -124,7 +125,6 @@ class RoomCreate(RoomBase):
     bed_options: List[int] = []
 
 class RoomResponse(RoomBase):
-    id: int
     photos: List[RoomPhotoResponse]
     price_periods: List[PricePeriodResponse]
     amenities: List[AmenityResponse]

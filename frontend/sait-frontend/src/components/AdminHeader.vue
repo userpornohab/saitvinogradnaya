@@ -11,10 +11,16 @@
           Панель сайта
         </router-link>
       </h2>
+      <h2>
+        <router-link to="/admin/stats" class="admin-link">
+          Панель сайта
+        </router-link>
+      </h2>
     </div>
     <router-link to="/" class="back-button">
       ← На главную
     </router-link>
+    
   </div>
 </template>
 

@@ -33,6 +33,7 @@
         <span v-else>Поиск...</span>
       </button>
     </div>
+    
     <div class="calendars" :class="{ visible: showCalendar }" >
       <DateRangePicker
         v-model:startDate="startDate"
@@ -223,13 +224,14 @@ export default {
     border-radius: 8px;
     padding: 10px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    transition: opacity 0.3s;
+    transition: all 0.3s ease;
     opacity: 0;    
   }
   
   .calendars.visible {
     background: white;
     opacity: 1;
+    transform: translateY(-10px);
     pointer-events: painted;
   }
 

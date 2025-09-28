@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query  
 from sqlalchemy.orm import Session
 from typing import List,  Optional
+from sqlalchemy import func, and_
 from models.user import User
+from datetime import date
+
 from database.database import get_db
-from models.room import Booking, Room, PricePeriod
-from schemas.room import BookingCreate, BookingResponse, BookingUpdate,BookingClientData, BookingBase
+from models.room import Booking, Room
+from schemas.room import BookingCreate, BookingResponse, BookingUpdate, BookingBase
 from auth.dependencies import check_superuser
 from utils.price_calculator import calculate_booking_price
 
@@ -200,3 +203,153 @@ def get_bookings_by_room(
     bookings = db.query(Booking).filter(Booking.room_id == room_id).all()
     
     return bookings
+
+
+@router.get("/booking-stats")
+async def get_booking_statistics(
+    start_date: date = Query(..., description="Начальная дата периода (YYYY-MM-DD)"),
+    end_date: date = Query(..., description="Конечная дата периода (YYYY-MM-DD)"),
+    room_id: Optional[int] = Query(None, description="ID комнаты (опционально)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Получить статистику по бронированиям за указанный период
+    """
+    # Проверка валидности дат
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="Начальная дата не может быть больше конечной")
+    
+    # Базовый запрос с фильтром по датам
+    query = db.query(Booking).filter(
+        and_(
+            Booking.check_in_date <= end_date,
+            Booking.check_out_date >= start_date
+        )
+    )
+    
+    # Фильтр по комнате если указан room_id
+    if room_id is not None:
+        query = query.filter(Booking.room_id == room_id)
+    
+    # Получаем все бронирования за период
+    bookings_in_period = query.all()
+    
+    # Рассчитываем статистику
+    total_bookings = len(bookings_in_period)
+    total_income = sum(booking.price for booking in bookings_in_period)
+    total_guests = sum(booking.number_of_guests for booking in bookings_in_period)
+    
+    # Дополнительная статистика по комнатам
+    room_stats = []
+    if room_id is None:  # Только если не фильтруем по конкретной комнате
+        # Группируем по комнатам
+        room_query = db.query(
+            Booking.room_id,
+            Room.title,
+            func.count(Booking.id).label('booking_count'),
+            func.sum(Booking.price).label('total_income'),
+            func.sum(Booking.number_of_guests).label('total_guests')
+        ).join(Room).filter(
+            and_(
+                Booking.check_in_date <= end_date,
+                Booking.check_out_date >= start_date
+            )
+        ).group_by(Booking.room_id, Room.title)
+        
+        room_stats_data = room_query.all()
+        
+        for room_stat in room_stats_data:
+            room_stats.append({
+                "room_id": room_stat.room_id,
+                "room_title": room_stat.title,
+                "booking_count": room_stat.booking_count or 0,
+                "total_income": float(room_stat.total_income or 0),
+                "total_guests": room_stat.total_guests or 0
+            })
+    
+    return {
+        "period": {
+            "start_date": start_date,
+            "end_date": end_date
+        },
+        "filter": {
+            "room_id": room_id,
+            "room_title": db.query(Room.title).filter(Room.id == room_id).scalar() if room_id else "Все комнаты"
+        },
+        "statistics": {
+            "total_bookings": total_bookings,
+            "total_income": float(total_income),
+            "total_guests": total_guests
+        },
+        "room_statistics": room_stats if room_id is None else None
+    }
+
+# Дополнительный эндпоинт для более детальной статистики
+@router.get("/booking-detailed-stats")
+async def get_detailed_booking_statistics(
+    start_date: date = Query(..., description="Начальная дата периода (YYYY-MM-DD)"),
+    end_date: date = Query(..., description="Конечная дата периода (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Детальная статистика по бронированиям с разбивкой по дням
+    """
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="Начальная дата не может быть больше конечной")
+    
+    # Статистика по дням
+    daily_stats_query = db.query(
+        Booking.check_in_date,
+        func.count(Booking.id).label('bookings_count'),
+        func.sum(Booking.price).label('daily_income'),
+        func.sum(Booking.number_of_guests).label('daily_guests')
+    ).filter(
+        and_(
+            Booking.check_in_date >= start_date,
+            Booking.check_in_date <= end_date
+        )
+    ).group_by(Booking.check_in_date)
+    
+    daily_stats = []
+    for stat in daily_stats_query.all():
+        daily_stats.append({
+            "date": stat.check_in_date,
+            "bookings_count": stat.bookings_count,
+            "daily_income": float(stat.daily_income or 0),
+            "daily_guests": stat.daily_guests or 0
+        })
+    
+    # Статистика по комнатам
+    room_stats_query = db.query(
+        Room.id,
+        Room.title,
+        func.count(Booking.id).label('bookings_count'),
+        func.sum(Booking.price).label('total_income'),
+        func.avg(Booking.price).label('avg_income_per_booking'),
+        func.sum(Booking.number_of_guests).label('total_guests')
+    ).join(Booking).filter(
+        and_(
+            Booking.check_in_date <= end_date,
+            Booking.check_out_date >= start_date
+        )
+    ).group_by(Room.id, Room.title)
+    
+    room_stats = []
+    for stat in room_stats_query.all():
+        room_stats.append({
+            "room_id": stat.id,
+            "room_title": stat.title,
+            "bookings_count": stat.bookings_count or 0,
+            "total_income": float(stat.total_income or 0),
+            "avg_income_per_booking": float(stat.avg_income_per_booking or 0),
+            "total_guests": stat.total_guests or 0
+        })
+    
+    return {
+        "period": {
+            "start_date": start_date,
+            "end_date": end_date
+        },
+        "daily_statistics": daily_stats,
+        "room_statistics": room_stats
+    }

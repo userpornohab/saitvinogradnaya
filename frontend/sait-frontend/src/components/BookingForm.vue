@@ -162,51 +162,56 @@ export default {
       });
       return occupied;
     },
-    totalPrice() {
-      if (!this.startDate || !this.endDate || 
-          this.startDate >= this.endDate || 
-          this.guestsCount < 1) {
-        return 0;
-      }
+totalPrice() {
+  if (!this.startDate || !this.endDate || 
+      this.startDate >= this.endDate || 
+      this.guestsCount < 1) {
+    return 0;
+  }
 
-      let total = 0;
-      const start = new Date(this.startDate);
-      const end = new Date(this.endDate);
-      let current = new Date(start);
+  let total = 0;
+  const start = new Date(this.startDate);
+  const end = new Date(this.endDate);
+  
+  // Нормализуем время для корректного сравнения дат
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  
+  let current = new Date(start);
 
-      // Перебираем каждый день бронирования
-      while (current < end) {
-        let bestPeriod = null;
-        
-        // Ищем лучший период для текущего дня
-        for (const period of this.pricePeriods) {
-          const periodStart = new Date(period.start_date);
-          const periodEnd = new Date(period.end_date);
-          
-          // Проверяем что день входит в период
-          if (current >= periodStart && current <= periodEnd) {
-            // Проверяем подходит ли по количеству гостей
-            if (period.number_of_guests >= this.guestsCount) {
-              // Ищем период с минимальным подходящим количеством гостей
-              if (!bestPeriod || period.number_of_guests < bestPeriod.number_of_guests) {
-                bestPeriod = period;
-              }
-            }
-          }
-        }
+  while (current < end) {
+    // Убрали неиспользуемую переменную currentDateStr
+    
+    // Ищем все подходящие периоды для текущей даты
+    const suitablePeriods = this.pricePeriods.filter(period => {
+      const periodStart = new Date(period.start_date);
+      const periodEnd = new Date(period.end_date);
+      
+      // Нормализуем время периодов
+      periodStart.setHours(0, 0, 0, 0);
+      periodEnd.setHours(0, 0, 0, 0);
+      
+      return current >= periodStart && 
+             current <= periodEnd && 
+             period.number_of_guests >= this.guestsCount;
+    });
 
-        if (bestPeriod) {
-          total += bestPeriod.price;
-        } else {
-          // Если не нашли подходящий период - сбрасываем сумму
-          return 0;
-        }
+    if (suitablePeriods.length === 0) {
+      // Если нет подходящего периода для этой даты - возвращаем 0
+      return 0;
+    }
 
-        current.setDate(current.getDate() + 1);
-      }
+    // Находим период с минимальной подходящей ценой
+    const bestPeriod = suitablePeriods.reduce((minPeriod, period) => {
+      return !minPeriod || period.price < minPeriod.price ? period : minPeriod;
+    }, null);
 
-      return total;
-    },
+    total += bestPeriod.price;
+    current.setDate(current.getDate() + 1);
+  }
+
+  return total;
+},
     showPrice() {
       return this.totalPrice > 0 && !this.hasErrors && this.startDate && this.endDate;
     },

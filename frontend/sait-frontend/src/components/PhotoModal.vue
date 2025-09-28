@@ -3,6 +3,9 @@
     <div 
       v-if="modelValue" 
       class="modal-overlay"
+      tabindex="0"
+      ref="modal"
+      @keydown="handleKeydown" 
     >
       <div 
         class="carousel-wrapper"
@@ -85,27 +88,39 @@ export default {
   },
   
   watch: {
+    photos: {
+    handler() {
+      this.$nextTick(() => {
+        this.initCarousel();
+      });
+    },
+    deep: true
+  },
     initialIndex(newIndex) {
       this.currentIndex = newIndex
       this.updatePosition()
     },
     
     modelValue(newVal) {
-      if (newVal) {
-        document.body.style.overflow = 'hidden'
-        window.addEventListener('keydown', this.handleKeydown)
-        
-        this.$nextTick(() => {
-          this.initCarousel()
-        })
-      } else {
-        document.body.style.overflow = ''
-        window.removeEventListener('keydown', this.handleKeydown)
-      }
+    if (newVal) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', this.handleKeydown);
+      
+      this.$nextTick(() => {
+        this.initCarousel();
+        // Сбросим индекс при открытии
+        this.currentIndex = this.initialIndex;
+        this.updatePosition();
+      });
+    } else {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', this.handleKeydown);
     }
+  }
   },
   
   mounted() {
+    this.initCarousel();
     window.addEventListener('resize', this.initCarousel)
   },
   
@@ -124,14 +139,15 @@ export default {
       window.removeEventListener('touchend', this.endDrag)
     },
     
-    initCarousel() {
-      if (!this.$refs.track) return
-      
-      this.containerWidth = window.innerWidth * 0.9
-      this.slideWidth = this.containerWidth
-      
-      this.updatePosition()
-    },
+initCarousel() {
+  if (!this.$refs.wrapper) return;
+  
+  // Используем реальную ширину контейнера вместо window.innerWidth
+  this.containerWidth = this.$refs.wrapper.clientWidth;
+  this.slideWidth = this.containerWidth;
+  
+  this.updatePosition();
+},
     
     updatePosition() {
       this.currentTranslateX = -this.currentIndex * this.slideWidth

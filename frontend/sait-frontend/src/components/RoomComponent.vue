@@ -44,15 +44,15 @@
             <div class="convenience">
               <div class="convenience_row_top">
                 <div class="flex_icons">
-                  <img  class="icon-pad" src="@/assets/icons/2.1.svg" alt="Назад">
+                  <img  class="icon-pad" src="@/assets/icons/user.svg" alt="Назад">
                   <div>{{ room.max_guests }} чел.</div>
                 </div>
                   <div>
-                    <img class="icon-pad" src="@/assets/icons/wifi.png" alt="Назад">
+                    <img class="icon-pad" src="@/assets/icons/wifi.svg" alt="Назад">
                   </div>
               </div>
               <div class="convenience_row_bot">
-                  <img class="icon-pad" src="@/assets/icons/2.3.png" alt="Назад">
+                  <img class="icon-pad" src="@/assets/icons/bed.svg" alt="Назад">
                   <div style="display: flex; gap: 6px;" >{{ room.bed_options.length }} 
                     <div v-if="room.bed_options.length <= 1">кровать</div>
                     <div v-else>кровати</div>
@@ -66,7 +66,7 @@
                 @click.stop="prevPhoto(room.id)"
                 :disabled="currentPhotoIndex[room.id] === 0"
               >
-                <img  style="transform: rotate(180deg); width: 12px; height: 12px ;" class="icon-pad" src="@/assets/icons/arrow-right.svg" alt="Назад">
+                <img  style="transform: rotate(180deg); width: 12px; height: 12px ;" class="" src="@/assets/icons/arrow-right.svg" alt="Назад">
               </button>
               
               <div class="slider-dots">
@@ -84,13 +84,13 @@
                 @click.stop="nextPhoto(room.id)"
                 :disabled="currentPhotoIndex[room.id] === 3"
               >
-                <img  style=" width: 12px; height: 12px ;" class="icon-pad" src="@/assets/icons/arrow-left.svg" alt="Назад">
+                <img  style=" width: 12px; height: 12px ;" class="" src="@/assets/icons/arrow-left.svg" alt="Назад">
               </button>
             </div>
           </div>
           <div class="room-header">
             <div>
-              <h1 style="margin-bottom: 6px;">{{ room.title }}</h1>
+              <h4 >{{ room.title }}</h4>
               <div>{{ room.floor }} этаж</div>
             </div>
             
@@ -142,7 +142,7 @@
                 @click.stop="prevDvorPhoto"
                 :disabled="currentDvorPhotoIndex === 0"
               >
-                <img  style="transform: rotate(180deg); width: 12px; height: 12px ;" class="icon-pad" src="@/assets/icons/arrow-right.svg" alt="Назад">
+                <img  style="transform: rotate(180deg); width: 12px; height: 12px ;" class="" src="@/assets/icons/arrow-right.svg" alt="Назад">
               </button>
               
               <div class="slider-dots">
@@ -160,7 +160,7 @@
                 @click.stop="nextDvorPhoto"
                 :disabled="currentDvorPhotoIndex === 3"
               >
-                <img  style=" width: 12px; height: 12px ;" class="icon-pad" src="@/assets/icons/arrow-left.svg" alt="Назад">
+                <img  style=" width: 12px; height: 12px ;" class="" src="@/assets/icons/arrow-left.svg" alt="Назад">
               </button>
             </div>
           </div>
@@ -174,6 +174,9 @@
 
     <!-- Модальное окно для фотографий двора -->
     <PhotoModal
+      
+      tabindex="0"
+
       v-if="isDvorModalOpen"
       v-model="isDvorModalOpen"
       :photos="processedDvorPhotos"
@@ -317,17 +320,33 @@ export default {
 <style scoped>
 /* Ограничиваем количество комнат в строке */
 .flex {
-  display: flex;
-  gap: 40px;
+  gap: clamp(6px, 2vw, 30px);
   width: 100%;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  /* flex-wrap: wrap;
+  justify-content: space-around; */
 }
+@media (max-width: 930px)  {
+  .flex {
+    grid-template-columns: 1fr 1fr ;
+
+  }
+}
+@media (max-width: 460px)  {
+  .flex {
+    grid-template-columns: 1fr ;
+
+  }
+}
+
 
 /* Новые стили для слайдера */
 .slider-container {
   position: relative;
   margin-bottom: 15px;
-  height: 346px;
+  aspect-ratio: 1 / 1;
+
   overflow: hidden;
   border-radius: 8px;
 }
@@ -408,7 +427,7 @@ export default {
 }
 
 .room {
-  max-width: 346px;
+  
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -416,7 +435,9 @@ export default {
 }
 
 .icon-pad {
-  width: 30px;
+  width: clamp(20px, 2vw, 30px);
+
+  filter: invert(100%);
   padding: 0 10px;
 }
 
@@ -426,12 +447,20 @@ export default {
   margin-bottom: 15px;
 }
 
-.room-header h1 {
+.room-header h4 {
   font-size: 1.2rem;
   margin: 0;
 }
 
+
+@media (max-width: 636px)  {
+    .room-header{
+      font-size: 12px;
+    }
+}
+
 .flex_icons {
+  
   display: flex;
   justify-content: center;
   align-items: center;
@@ -439,13 +468,10 @@ export default {
   color: white;
 }
 
-.price-range h2 {
+.price-range {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
+  font-size: 1.2rem;
   margin: 0;
-  color: #e74c3c;
   font-weight: 600;
 }
 
@@ -560,10 +586,9 @@ export default {
 }
 
 .h_room_number{
-  margin: 30px 0;
   font-size: 26px;
 }
 .room_number{
-  height: 76vh;
+  
 }
 </style>

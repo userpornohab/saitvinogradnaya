@@ -196,12 +196,23 @@ export default {
       return [current, current + 1, current + 2];
     });
 
-    const isDateOccupied = (date) => {
-      if (!props.numberOfRooms || !date) return false;
-      const dateStr = date.toISOString().split('T')[0];
-      return (props.occupiedDates[dateStr] || 0) >= props.numberOfRooms;
-    };
-
+const isDateOccupied = (date) => {
+  if (!props.numberOfRooms || !date) return false;
+  
+  // Смещаем дату на 1 день назад для проверки занятости
+  const checkDate = new Date(date);
+  checkDate.setDate(date.getDate() - 1);
+  const checkDateStr = formatDate(checkDate);
+  
+  // Также проверяем саму дату (без смещения)
+  const currentDateStr = formatDate(date);
+  
+  // Дата считается занятой, если занята смещенная дата ИЛИ текущая дата
+  const isShiftedOccupied = (props.occupiedDates[checkDateStr] || 0) >= props.numberOfRooms;
+  const isCurrentOccupied = (props.occupiedDates[currentDateStr] || 0) >= props.numberOfRooms;
+  
+  return isShiftedOccupied || isCurrentOccupied;
+};
     const selectDate = (date) => {
       if (!props.startDate || props.endDate) {
         emit('update:startDate', date);
@@ -241,39 +252,37 @@ export default {
           });
         };
 
+const getDayClasses = (cell) => {
+  if (!cell.date) return 'empty';
+  
+  const date = cell.date.getTime();
+  const isStart = date === props.startDate?.getTime();
+  const isValidEnd = props.endDate 
+    ? props.endDate >= props.startDate 
+    : hoverEndDate.value >= props.startDate;
+  const isEnd = (date === props.endDate?.getTime() && isValidEnd) 
+    || (!props.endDate && date === hoverEndDate.value?.getTime() && isValidEnd);
+  const inRange = props.startDate && props.endDate && 
+                date > props.startDate.getTime() && 
+                date < props.endDate.getTime();
+  const inHoverRange = props.startDate && hoverEndDate.value && 
+                     date > props.startDate.getTime() && 
+                     date < hoverEndDate.value.getTime();
+  const isDisabled = date < new Date().setHours(0,0,0,0) || 
+                    isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
+  
+  // Используем смещенную проверку занятости
+  const isOccupied = isDateOccupied(cell.date);
+  const noPrice = !hasPriceForDate(cell.date);
 
-    const getDayClasses = (cell) => {
-      if (!cell.date) return 'empty';
-      
-      const date = cell.date.getTime();
-      const isStart = date === props.startDate?.getTime();
-      const isValidEnd = props.endDate 
-        ? props.endDate >= props.startDate 
-        : hoverEndDate.value >= props.startDate;
-      const isEnd = (date === props.endDate?.getTime() && isValidEnd) 
-        || (!props.endDate && date === hoverEndDate.value?.getTime() && isValidEnd);
-      const inRange = props.startDate && props.endDate && 
-                    date > props.startDate.getTime() && 
-                    date < props.endDate.getTime();
-      const inHoverRange = props.startDate && hoverEndDate.value && 
-                         date > props.startDate.getTime() && 
-                         date < hoverEndDate.value.getTime();
-      const isDisabled = date < new Date().setHours(0,0,0,0) || 
-                        isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
-      const isOccupied = isDateOccupied(cell.date) && !isDisabled;
-      const noPrice = !hasPriceForDate(date);
-
-
-      return {
-        'selected': isStart || isEnd || inRange || inHoverRange,
-        'start-date': isStart,
-        'end-date': isEnd,
-        'occupied': isOccupied,
-        'disabled': isDisabled || noPrice, // Добавляем класс disabled если нет цены
-
-      };
-    };
-
+  return {
+    'selected': isStart || isEnd || inRange || inHoverRange,
+    'start-date': isStart,
+    'end-date': isEnd,
+    'occupied': isOccupied && !isDisabled,
+    'disabled': isDisabled || noPrice || isOccupied,
+  };
+};
     const changeMonth = (offset) => {
       const newMonth = currentMonth.value + offset;
       const newYear = currentYear.value;
@@ -360,7 +369,7 @@ export default {
   
   
   .nav-btn-start.visible{
-    background: #ffffff;
+    background: none;
     color: rgb(255, 255, 255);
     pointer-events: painted;
     cursor: pointer;
@@ -379,6 +388,7 @@ export default {
   }
   
   .nav-btn-end.nevisible{
+    background: none;
     pointer-events: none;
     cursor: not-allowed;
     color: rgb(0, 0, 0);
@@ -399,7 +409,7 @@ export default {
     align-items: center;
     display: flex;    
     justify-content: center;
-    background: white;
+    background: none;
     border: none;
     opacity: 0.5;
     color: rgb(0, 0, 0);
@@ -422,7 +432,7 @@ export default {
     align-items: center;
     justify-content: center;
     border: none;
-    background: #ffffff;
+    background: none;
     color: white;
     border-radius: 50%;
     cursor: pointer;

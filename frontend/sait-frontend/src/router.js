@@ -5,7 +5,7 @@ import UserLogin  from '@/components/Auth/UserLogin.vue';
 import SignUp from '@/components/Auth/SignUp.vue';
 import AdminRooms from '@/components/AdminRooms.vue';
 import AdminSitePanel from '@/components/AdminSitePanel.vue';
-
+import StatisticksBooking from '@/components/StatisticksBooking.vue'
 //import AdminPanel from '@/components/Admin/AdminPanel.vue';
 
 import axios from 'axios';
@@ -31,6 +31,32 @@ const routes = [
     path: '/admin/site',
     name: 'AdminSitePanel',
     component: AdminSitePanel,
+    beforeEnter: async (to, from, next) => {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        next('/login');
+        return;
+      }
+      try {
+        const response = await axios.get('http://localhost:8000/users/me/', { // Добавлен слеш в конце
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+        if (response.data.is_superuser) {
+          next();
+        } else {
+          next('/');
+        }
+      } catch (error) {
+        next('/login');
+      }
+    }
+  },
+    {
+    path: '/admin/stats',
+    name: 'StatisticksBooking',
+    component: StatisticksBooking,
     beforeEnter: async (to, from, next) => {
       const token = localStorage.getItem('access_token');
       if (!token) {
