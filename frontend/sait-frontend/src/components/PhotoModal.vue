@@ -270,7 +270,7 @@ export default {
 .photo-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgb(255, 255, 255);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 9999;
   /* Единственный скролл — у оверлея. Внутренний контент растёт свободно. */
   overflow-y: auto;

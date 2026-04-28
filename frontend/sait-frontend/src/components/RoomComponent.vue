@@ -331,6 +331,7 @@ export default {
    ================================================================ */
 .room_number {
   position: relative;
+  overflow: hidden;
 }
 
 .rooms-bg-illustration {
