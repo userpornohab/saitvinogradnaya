@@ -2,6 +2,11 @@
 .DS_Store
 Thumbs.db
 *.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
 
 ### Python ###
 # Виртуальное окружение
@@ -9,12 +14,17 @@ venv/
 .env/
 .venv/
 env/
+ENV/
+virtualenv/
+myvenv/
 
 # Кэш и скомпилированные файлы
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+.mypy_cache/
 
 # Тестовые ковер-репорты
 .coverage
@@ -37,15 +47,6 @@ coverage/
 # Линтеры/тестеры
 .eslintcache
 .nyc_output/
-
-# Переменные окружения
-.env
-.env.local
-.env.*.local
-
-# Editor
-.idea/
-.vscode/
 *.suo
 *.ntvs*
 *.njsproj
@@ -56,10 +57,14 @@ coverage/
 # Файлы БД (если используете SQLite)
 *.db
 *.sqlite3
+*.sqlite
+database.db
 
 # Файлы .env (никогда не коммитьте секреты!)
 .env
 .secrets
+traefik/acme.json
+acme.json
 
 # Логи приложения
 logs/

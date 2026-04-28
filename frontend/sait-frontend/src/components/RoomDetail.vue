@@ -5,32 +5,42 @@
         <h1 class="room_detail_h1">{{ room.title }}</h1>
         <div class="lincto" @click="copyBookingLink">
           <img class="lincto_svg" src="@/assets/icons/upload.svg" alt="Назад">
-          <div>Поделиться</div>
         </div>
       </div>  
 
       
       <div class="room_img_container">
-      <div
-        v-for="(photo, index) in room.photos.slice(0, 5)"
-        :key="photo.url"
-        :class="['room_img', { main_img: photo.is_main }]"
-        @click="openModal(index)" 
-      >
-        <img :src="getPhotoUrl(photo.url)" :alt="room.title" />
+        <!-- Кнопка назад для мобильной версии -->
+        <button v-if="isMobile" class="back-button-mobile" @click="goBack">
+          <img class="activiti_svg" src="@/assets/icons/back-svgrepo-com.svg" alt="Назад">
+        </button>
+        
+        <div  
+          v-for="(photo, index) in room.photos.slice(0, 5)"
+          :key="photo.url"
+          :class="['room_img', { main_img: photo.is_main }]"
+          @click="openModal(index)" 
+        >
+          <img :src="getPhotoUrl(photo.url)" :alt="room.title" />
+        </div>
       </div>
-    </div>
-    <PhotoModal
-      v-model="isModalOpen"
-      :photos="fullPhotos"
-      :initialIndex="currentPhotoIndex"
-      :roomTitle="room?.title || ''"
-    />
+      <PhotoModal
+        v-model="isModalOpen"
+        :photos="fullPhotos"
+        :initialIndex="currentPhotoIndex"
+        :roomTitle="room?.title || ''"
+      />
       <div class="room_detail_wrapper">
         <div class="room_detail_wrapper_left">
           <div class="room_detail_about">
             <div class="room_detail_full_name">
               <h2>{{ room.title_dop }}</h2>
+            </div>
+            <div class="info_about_room">
+              <div class="info_about_room_cont">21 м2</div>
+              <div class="info_about_room_cont">{{ room.max_guests }} гостя</div>
+              <div class="info_about_room_cont">{{ room.floor }} этаж</div>
+              <div class="info_about_room_cont">{{ room.bed_options.length  }} кровати</div>
             </div>
             <div class="about">{{ room.description }}</div>
           </div>
@@ -44,12 +54,12 @@
                 :src="getIconUrl(bed.icon)"
                 alt=""
               />
-              <div class="room_bed_were">Комната</div>
-              <div>{{ bed.name }}</div>
+
+              <div class="room_bed_were">{{ bed.name }}</div>
             </div>
           </div>
           <div class="room_detail_facilities">
-            <h3 class="facilities_h3">Основные удобства</h3>
+            <h3 class="facilities_h3">В номере есть</h3>
             <div
               class="facilities_grap"
             >
@@ -63,9 +73,50 @@
               </div>
             </div>
             <button v-if="visibleAmenities.length >= defaultVisibleAmenities " class="facilities_btn" @click="toggleFacilities">
-              {{ showAllFacilities ? 'Скрыть' : 'Показать все удобства' }}
+              {{ showAllFacilities ? 'Скрыть' : 'Все удобства' }}
             </button>
           </div>
+
+          <div class="rules-card">
+            <h3 class="rules-title">Правила проживания</h3>
+
+            <div class="rules-checkin info_about_room_cont">
+              <span>Заезд с <strong>14:00</strong></span>
+              <span>—</span>
+              <span>Выезд до <strong>12:00</strong></span>
+            </div>
+
+            <ul class="rules-list">
+              <li>
+                <span class="rule-icon">🚭</span>
+                <span>Курение разрешено в специально отведённых местах</span>
+              </li>
+              <li>
+                <span class="rule-icon">🐾</span>
+                <span>Можно с питомцами по согласованию </span>
+              </li>
+              <li>
+                <span class="rule-icon">🎉</span>
+                <span>Без вечеринок и мероприятий</span>
+              </li>
+              <li>
+                <span class="rule-icon">👨‍👩‍👧</span>
+                <span>Можно с детьми</span>
+              </li>
+            </ul>
+
+            <div class="rules-section">
+              <h3>Способ оплаты</h3>
+              <p>Наличные</p>
+              <p>Перевод</p>
+            </div>
+
+            <div class="rules-section">
+              <h3>Условия отмены</h3>
+              <p>По договорённости с владельцем</p>
+            </div>
+          </div>
+
           <div class="room_detail_datapiker">
             <h3>Календарь</h3>
             <div class="room-calendar">
@@ -77,6 +128,8 @@
                 :number-of-rooms="room.number_of_rooms"
                 :price-periods="room.price_periods"
                 @clear="handleClear"
+                :no-margin="true"
+                :single-month="isMobile"
               />
             </div>
           </div>
@@ -117,7 +170,7 @@
             @update:startDate="startDate = $event"
             @update:endDate="endDate = $event"
             @booking-change="handleBookingChange"
-
+            @booking-submit="handleBookingSubmit"
           />
         </div>
       </div>
@@ -129,6 +182,13 @@
       <div v-if="showCopiedNotification" class="copied-notification">
     Ссылка скопирована!
   </div>
+
+    <!-- Telegram booking confirmation modal -->
+    <TelegramBookingModal
+      v-if="telegramModalOpen"
+      v-model="telegramModalOpen"
+      :booking-data="telegramBookingData"
+    />
   </section>
 </template>
 
@@ -137,12 +197,14 @@ import axios from 'axios';
 import DateRangePicker from './DateRangePicker.vue';
 import BookingForm from './BookingForm.vue';
 import PhotoModal from './PhotoModal.vue';
+import TelegramBookingModal from './TelegramBookingModal.vue';
 
 export default {
   components: {
     DateRangePicker,
     BookingForm,
-    PhotoModal 
+    PhotoModal,
+    TelegramBookingModal,
   },
 
   data() {
@@ -161,228 +223,185 @@ export default {
       showAllFacilities: false,
       defaultVisibleAmenities: 6,
       initialLoad: true,
-      accordionItems: [
-        {
-          title: "Условия бронирования",
-          content: `
-            <ul class="accordion-list">
-              <li>При бронировании необходимо внести предоплату в размере стоимости номера за сутки проживания</li>
-              <li>Вы можете бесплатно отменить бронирование за семь суток до заезда</li>
-              <li>Время выезда: до 12:00</li>
-              <li>Время заезда: после 14:00</li>
-              <li>Минимальный срок проживания: 3 ночи</li>
-            </ul>
-          `,
-          isOpen: false
-        },
-        {
-          title: "Правила проживания",
-          content: `
-            <ul class="accordion-list">
-              <li>С домашними животными не принимаем</li>
-              <li>В номерах не курить</li>
-              <li>После 23:00 часов соблюдаем тишину и относимся с уважением к отдыху других</li>
-              <li>Шумные компании на берегу моря могут отдыхать и шуметь до утра</li>
-            </ul>
-          `,
-          isOpen: false
-        },
-        {
-          title: "Условия проживания",
-          content: `
-            <ul class="accordion-list">
-              <li>Горячая вода постоянно</li>
-              <li>Оплата наличными и по переводу на карту</li>
-            </ul>
-          `,
-          isOpen: false
-        },
-        {
-          title: "Трансфер",
-          content: `
-            <ul class="accordion-list">
-              <li>Трансфер от и до ж/д вокзала (за дополнительную плату)</li>
-              <li>Трансфер из и в аэропорта (за дополнительную плату)</li>
-            </ul>
-          `,
-          isOpen: false
-        },
-        {
-          title: "Сервис",
-          content: `
-            <ul class="accordion-list">
-              <li><strong>Бесплатный:</strong> Смена постельного белья, парковка</li>
-              <li><strong>За дополнительную плату:</strong> Услуги экскурсовода, пользование стиральной машиной</li>
-            </ul>
-          `,
-          isOpen: false
-        },
-        {
-          title: "Скидки и акции",
-          content: `
-            <ul class="accordion-list">
-              <li>Заказ от 30 дней и больше скидка 10%</li>
-              <li>Отдых для детей до трёх лет (бесплатно)</li>
-            </ul>
-          `,
-          isOpen: false
-        }
-      ]
+      isMobile: false, // Добавляем свойство для определения мобильного устройства
+      accordionItems: [],
+      telegramModalOpen: false,
+      telegramBookingData: {
+        checkin: null,
+        checkout: null,
+        guests: 1,
+        price: 0,
+        prepay: 0,
+        roomId: null,
+      },
     };
   },
-watch: {
-  startDate() {
-    if (!this.initialLoad) this.updateUrlQuery();
+  watch: {
+    startDate() {
+      if (!this.initialLoad) this.updateUrlQuery();
+    },
+    endDate() {
+      if (!this.initialLoad) this.updateUrlQuery();
+    },
+    guestsCount() {
+      if (!this.initialLoad) this.updateUrlQuery();
+    },
+    $route() {
+      if (this.room) this.setParamsFromUrl();
+    }
   },
-  endDate() {
-    if (!this.initialLoad) this.updateUrlQuery();
-  },
-  guestsCount() {
-    if (!this.initialLoad) this.updateUrlQuery();
-  },
-  $route() {
-    if (this.room) this.setParamsFromUrl();
-  }
-},
   computed: {
-  fullPhotos() {
-        if (!this.room) return [];
-        return this.room.photos.map(photo => ({
-          ...photo,
-          fullUrl: this.getPhotoUrl(photo.url)
-        }));
-      },
+    fullPhotos() {
+      if (!this.room) return [];
+      return this.room.photos.map(photo => ({
+        ...photo,
+        fullUrl: this.getPhotoUrl(photo.url)
+      }));
+    },
     visibleAmenities() {
       return this.showAllFacilities 
         ? this.room.amenities 
         : this.room.amenities.slice(0, this.defaultVisibleAmenities);
     },
     roomId() {
-    return this.$route.params.id;
-  },
+      return this.$route.params.id;
+    },
   },
 
   created() {
     this.fetchRoomDetail();
     this.loadBookings();
+    this.fetchFAQ();
   },
   mounted() {
-  window.addEventListener('keydown', this.handleKeydown);
-},
-beforeUnmount() {
-  window.removeEventListener('keydown', this.handleKeydown);
-  document.body.style.overflow = '';
-},
+    window.addEventListener('keydown', this.handleKeydown);
+    this.checkMobile(); // Проверяем размер экрана при монтировании
+    window.addEventListener('resize', this.checkMobile); // Следим за изменением размера
+  },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.handleKeydown);
+    window.removeEventListener('resize', this.checkMobile);
+    document.body.style.overflow = '';
+  },
 
   methods: {
-  openModal(index) {
+    // Метод для определения мобильного устройства
+    checkMobile() {
+      this.isMobile = window.innerWidth <= 768;
+    },
+    
+    // Метод для возврата на предыдущую страницу
+    goBack() {
+      this.$router.back(); // или this.$router.go(-1)
+    },
+    
+    openModal(index) {
       this.currentPhotoIndex = index;
       this.isModalOpen = true;
     },
 
-
-     formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  },
-async copyBookingLink() {
-  try {
-    const bookingUrl = this.generateBookingUrl();
+    formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
     
-    // Копируем ВСЕГДА, даже если параметров нет
-    await navigator.clipboard.writeText(bookingUrl);
-    
-    this.showCopiedNotification = true;
-    this.buttonText = 'Скопировано!';
-    
-    setTimeout(() => {
-      this.showCopiedNotification = false;
-      this.buttonText = 'Поделиться';
-    }, 2000);
-  } catch (err) {
-    console.error('Ошибка копирования:', err);
-    alert('Не удалось скопировать ссылку. Пожалуйста, скопируйте вручную.');
-  }
-},
+    async copyBookingLink() {
+      try {
+        const bookingUrl = this.generateBookingUrl();
+        
+        // Копируем ВСЕГДА, даже если параметров нет
+        await navigator.clipboard.writeText(bookingUrl);
+        
+        this.showCopiedNotification = true;
+        this.buttonText = 'Скопировано!';
+        
+        setTimeout(() => {
+          this.showCopiedNotification = false;
+          this.buttonText = 'Поделиться';
+        }, 2000);
+      } catch (err) {
+        console.error('Ошибка копирования:', err);
+        alert('Не удалось скопировать ссылку. Пожалуйста, скопируйте вручную.');
+      }
+    },
 
-  
-updateUrlQuery() {
-  const query = { ...this.$route.query };
-  
-  if (this.startDate) {
-    query.start = this.formatDate(this.startDate);
-  } else {
-    delete query.start;
-  }
-  
-  if (this.endDate) {
-    query.end = this.formatDate(this.endDate);
-  } else {
-    delete query.end;
-  }
-  
-  if (this.guestsCount > 1) {
-    query.guests = this.guestsCount;
-  } else {
-    delete query.guests;
-  }
-  
-  this.$router.replace({ 
-    path: this.$route.path, 
-    query 
-  }).catch(() => {});
-},
+    updateUrlQuery() {
+      const query = { ...this.$route.query };
+      
+      if (this.startDate) {
+        query.start = this.formatDate(this.startDate);
+      } else {
+        delete query.start;
+      }
+      
+      if (this.endDate) {
+        query.end = this.formatDate(this.endDate);
+      } else {
+        delete query.end;
+      }
+      
+      if (this.guestsCount > 1) {
+        query.guests = this.guestsCount;
+      } else {
+        delete query.guests;
+      }
+      
+      this.$router.replace({ 
+        path: this.$route.path, 
+        query 
+      }).catch(() => {});
+    },
 
-setParamsFromUrl() {
-  const query = this.$route.query;
-  
-  if (query.start) {
-    const [year, month, day] = query.start.split('-').map(Number);
-    const startDate = new Date(year, month - 1, day);
-    if (!isNaN(startDate.getTime())) {
-      this.startDate = startDate;
-    }
-  }
-  
-  if (query.end) {
-    const [year, month, day] = query.end.split('-').map(Number);
-    const endDate = new Date(year, month - 1, day);
-    if (!isNaN(endDate.getTime())) {
-      this.endDate = endDate;
-    }
-  }
-  
-  if (query.guests) {
-    const guests = parseInt(query.guests);
-    if (!isNaN(guests) && guests > 0) {
-      this.guestsCount = guests;
-    }
-  }
-},
-generateBookingUrl() {
-  const params = new URLSearchParams();
-  
-  // Добавляем параметры только если они есть
-  if (this.startDate) {
-    params.append('start', this.formatDate(this.startDate));
-  }
-  
-  if (this.endDate) {
-    params.append('end', this.formatDate(this.endDate));
-  }
-  
-  // Всегда добавляем количество гостей (даже если 1)
-  params.append('guests', this.guestsCount);
-  
-  const queryString = params.toString();
-  return queryString 
-    ? `${window.location.origin}${window.location.pathname}?${queryString}`
-    : `${window.location.origin}${window.location.pathname}`;
-},
-
+    setParamsFromUrl() {
+      const query = this.$route.query;
+      
+      if (query.start) {
+        const [year, month, day] = query.start.split('-').map(Number);
+        const startDate = new Date(year, month - 1, day);
+        if (!isNaN(startDate.getTime())) {
+          this.startDate = startDate;
+        }
+      }
+      
+      if (query.end) {
+        const [year, month, day] = query.end.split('-').map(Number);
+        const endDate = new Date(year, month - 1, day);
+        if (!isNaN(endDate.getTime())) {
+          this.endDate = endDate;
+        }
+      }
+      
+      if (query.guests) {
+        const guests = parseInt(query.guests);
+        if (!isNaN(guests) && guests > 0) {
+          this.guestsCount = guests;
+        }
+      }
+    },
     
+    generateBookingUrl() {
+      const params = new URLSearchParams();
+      
+      // Добавляем параметры только если они есть
+      if (this.startDate) {
+        params.append('start', this.formatDate(this.startDate));
+      }
+      
+      if (this.endDate) {
+        params.append('end', this.formatDate(this.endDate));
+      }
+      
+      // Всегда добавляем количество гостей (даже если 1)
+      params.append('guests', this.guestsCount);
+      
+      const queryString = params.toString();
+      return queryString 
+        ? `${window.location.origin}${window.location.pathname}?${queryString}`
+        : `${window.location.origin}${window.location.pathname}`;
+    },
+
     async fetchRoomDetail() {
       const roomId = this.$route.params.id;
       try {
@@ -393,29 +412,38 @@ generateBookingUrl() {
         console.error('Ошибка при загрузке данных о комнате:', error);
       }
     },
-
-    async loadBookings() {
+    async fetchFAQ() {
   try {
-    const roomId = this.$route.params.id;
-    const response = await axios.get(`http://localhost:8000/bookings/rooms/${roomId}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-    });
-    
-    // Обеспечиваем реактивность
-    this.booking = response.data
-    this.calculateOccupiedDates(response.data);
-    this.setParamsFromUrl();
-    this.initialLoad = false;
-    
-    
+    const response = await axios.get(`http://127.0.0.1:8000/site/faqs/`);
+    // Преобразуем поля API в формат аккордеона
+    this.accordionItems = response.data.map(item => ({
+      title: item.question,
+      content: item.answer,
+      isOpen: false
+    }));
   } catch (error) {
-    console.error(error, 'Ошибка загрузки бронирований');
+    console.error('Ошибка при загрузке FAQ:', error);
   }
 },
 
-
-
-
+    async loadBookings() {
+      try {
+        const roomId = this.$route.params.id;
+        const response = await axios.get(`http://localhost:8000/bookings/rooms/${roomId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+        });
+        
+        // Обеспечиваем реактивность
+        this.booking = response.data
+        this.calculateOccupiedDates(response.data);
+        this.setParamsFromUrl();
+        this.initialLoad = false;
+        
+        
+      } catch (error) {
+        console.error(error, 'Ошибка загрузки бронирований');
+      }
+    },
 
     toggleAccordion(index) {
       // Закрываем все элементы
@@ -435,7 +463,7 @@ generateBookingUrl() {
         const start = new Date(booking.check_in_date);
         const end = new Date(booking.check_out_date);
         let current = new Date(start);
-          end.setDate(end.getDate() - 1);
+        end.setDate(end.getDate() - 1);
 
         while (current < end) {
           const dateStr = this.formatDate(current)
@@ -465,6 +493,22 @@ generateBookingUrl() {
       });
     },
 
+    /**
+     * Открывает модалку подтверждения бронирования с передачей данных в Telegram.
+     * Не ломает существующую логику — просто показывает окно поверх страницы.
+     */
+    handleBookingSubmit(payload) {
+      this.telegramBookingData = {
+        checkin: payload.startDate,
+        checkout: payload.endDate,
+        guests: payload.guests,
+        price: payload.totalPrice,
+        prepay: payload.prepayment,
+        roomId: this.roomId,
+      };
+      this.telegramModalOpen = true;
+    },
+
     handleClear() {
       this.startDate = null;
       this.endDate = null;
@@ -481,10 +525,17 @@ generateBookingUrl() {
 
 <style scoped>
 
+/* Типографика заголовков на странице детального описания номера */
+.room_detail h1,
+.room_detail_h1 { font-size: 32px; line-height: 1.2; font-weight: 700; }
+.room_detail h2 { font-size: 24px; line-height: 1.3; font-weight: 600; }
+.room_detail h3 { font-size: 20px; line-height: 1.35; font-weight: 600; }
+
 .room_detail_facilities{
-  padding: 0  0 50px;
-    border-bottom: 1px solid #dddddd;
-    border-top: 1px solid #dddddd;
+  padding: 0  0 25px;
+  padding-top: 25px;
+  border-bottom: 1px solid #dddddd;
+  border-top: 1px solid #dddddd;
 
 }
 
@@ -495,7 +546,8 @@ generateBookingUrl() {
 
 .room_detail_about {
   border-bottom: 1px solid #dddddd;
-  padding-bottom: 50px;
+  padding-bottom: 25px;
+  margin-bottom: 25PX;
 }
 
 .about {
@@ -539,7 +591,7 @@ li {
 /* Стили для блока кроватей */
 .room_detail_bed_info {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 16px;
   margin: 20px 0 30px;
 }
@@ -558,20 +610,20 @@ li {
 
 
 .room_bed_were {
-  font-weight: bold;
-  margin: 10px 0;
+  text-align: center;
+ 
 }
 
 .room_bed_img {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   margin-bottom: 12px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 /* Стили для блока удобств */
 .facilities_grap {
-   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   display:grid;
   gap: 20px;
   margin: 20px 0;
@@ -590,8 +642,8 @@ li {
 }
 
 .facilities_block img {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   transition: transform 0.3s ease;
 }
 
@@ -611,7 +663,7 @@ li {
   background: white;
   border: 1px solid #222;
   border-radius: 8px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -705,7 +757,7 @@ input[type="date"] {
 
 .room_detail {
   max-width: 1120px;
-  margin: 30px auto 100px;
+  margin: 0 auto;
 
 }
 
@@ -770,16 +822,170 @@ input[type="date"] {
   border-radius: 0 15px 15px 0;
 }
 
-@media (max-width: 768px) {
-  .room_img_container {
-    border-radius: 15px;
+.room_detail_container{
+   padding: 10px; 
   }
+
+/* Кнопка "Назад" для мобильной версии */
+.back-button-mobile {
+  position: absolute;
+  background: none;
+  top: 20px;
+  padding: 4px 8px;
+  left: 20px;
+  border-radius: 16px;
+  z-index: 10;
+  background-color: #ffffffea;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
 }
 
+.back-button-mobile:hover {
+  transform: translateX(-2px);
+}
+
+.back-button-mobile svg {
+  width: 18px;
+  height: 18px;
+}
 .room_detail_wrapper {
   margin-top: 30px;
   display: grid;
   grid-template-columns: 58% 10% 32%;
+}
+
+@media (max-width: 768px) {
+  .room_detail_wrapper_left{
+    order: 2
+  }
+  .room_detail_wrapper_right{
+    order: 1;
+    background: var(--color-gray-50);
+    padding: 16px 0;
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .room_detail_container {
+    padding: 0;
+    position: relative;
+  }
+
+  .flex-titel {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    z-index: 3;
+    padding: 0;
+    margin: 0;
+    background: none;
+  }
+
+  .flex-titel .room_detail_h1 {
+    display: none;
+  }
+
+  .flex-titel .lincto {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    border-radius: 50%;
+  }
+
+  .flex-titel .lincto:hover {
+    background: #fff;
+  }
+
+  .room_img_container {
+    position: relative;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    display: block;
+    height: 45vh;
+    width: 100%;
+    aspect-ratio: auto;
+    overflow: hidden;
+  }
+
+  /* Показываем только первое фото */
+  .room_img_container .room_img {
+    display: none;
+  }
+
+  .room_img_container .room_img:first-of-type {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .room_img_container .room_img:first-of-type img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .room_detail_wrapper {
+    padding: var(--spacing-md);
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .room_detail_h1 {
+    font-size: var(--text-xl);
+  }
+
+  .room_detail_bed_info {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+  }
+
+  .facilities_grap {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+  }
+
+  .back-button-mobile {
+    top: var(--spacing-md);
+    left: var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .room_img_container {
+    height: 35vh;
+  }
+
+  .room_detail_wrapper {
+    padding: 0 20px ;
+  }
+
+  .about {
+    font-size: var(--text-base);
+  }
+
+  .bed {
+    padding: var(--spacing-md);
+  }
+
+  .facilities_block {
+    padding: var(--spacing-sm) 0;
+  }
+}
+
+
+
+
+.activiti_svg{
+  width: 20px;
+  height: 20px;
 }
 
 .room_detail_wrapper_right {
@@ -789,7 +995,7 @@ input[type="date"] {
 }
 
 .accordion-container {
-  margin-top: 30px;
+  padding: 25px 0;
   border-top: 1px solid #e0e0e0;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -889,6 +1095,91 @@ input[type="date"] {
 
 /* Стили модального окна */
 
+.info_about_room{
+  
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.info_about_room_cont{
+  padding: 10px 16px ;
+  font-size: 12px;
+  background-color: #f7f7f7;
+  border-radius: 18px;
+  border: 1px solid #ebebeb;
+}
 
+.rules-card {
+   border-bottom: 1px solid #dddddd;
+
+  padding: 20px 0;
+  background: #ffffff;
+  color: #222;
+}
+li{
+  background: none;
+}
+
+.rules-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.rules-checkin {
+  display: flex;
+  gap: 6px;
+  max-width: 200px;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 16px;
+}
+
+.rules-checkin strong {
+  font-weight: 600;
+}
+
+.rules-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+}
+
+.rules-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 16px;
+  color: #333;
+  padding: 6px 0;
+}
+
+.rule-icon {
+  width: 22px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 16px;
+}
+
+.rules-section {
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.rules-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.rules-section p {
+  font-size: 14px;
+  margin: 0;
+  color: #444;
+}
+.room_detail_datapiker h3{
+  margin: 16px 0;
+}
 
 </style>

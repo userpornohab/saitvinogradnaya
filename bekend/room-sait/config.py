@@ -8,5 +8,8 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        # Разрешаем посторонние переменные в .env (TELEGRAM_*, и т.п.),
+        # которые используются другими процессами (например, ботом).
+        extra = "ignore"
 
 settings = Settings()

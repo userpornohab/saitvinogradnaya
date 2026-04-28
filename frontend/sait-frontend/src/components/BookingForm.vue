@@ -6,7 +6,7 @@
       </h6>
       <div class="date-inputs"  @click.stop="showDatePicker = true">
         <div class="input-group">
-          <div>Заезд</div>
+          <div style="font-size: 12px; transform: translateY(6px);">Заезд</div>
           <input
             class="input-group-inp"
             type="text" 
@@ -18,8 +18,8 @@
           >
         </div>
 
-        <div class="input-group">
-          <div>Выезд</div>
+        <div class="input-group input-group--end">
+          <div style="font-size: 12px; transform: translateY(6px);">Выезд</div>
           <input
             class="input-group-inp"
             type="text" 
@@ -29,10 +29,21 @@
             readonly
             @focus="showDatePicker = true"
           >
+          <button
+            v-if="startDate || endDate"
+            type="button"
+            class="input-clear"
+            aria-label="Очистить даты"
+            @click.stop="handleClear"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
       </div>
       <div  class="guests-input">
-      <div style="font-size: 12px;">Гости</div>
+      <div style="font-size: 12px; transform: translateY(6px);">Гости</div>
       <GuestsInput 
         :count="guestsCount"
         :MAX_GUESTS="maxGuests"
@@ -52,8 +63,10 @@
             @update:startDate="handleStartDateUpdate"
             @update:endDate="handleEndDateUpdate"
             @clear="handleClear"
+            @close="showDatePicker = false"
             @error="handleDateError"
             :price-periods="pricePeriods"
+            :isMobile="isMobile"
 
           />
         </div>
@@ -126,7 +139,7 @@ export default {
       required: true
     },
   },
-  emits: ['update:startDate', 'update:endDate', 'booking-change', 'booking-submit'],
+  emits: ['update:startDate', 'update:endDate', 'booking-change', 'booking-submit', 'close'],
   data() {
     return {
       showDatePicker: false,
@@ -134,11 +147,13 @@ export default {
       guestsError: false,
       errorMessage: '',
       isFixed: false,
+      isMobile: false,
     };
   },
   computed: {
     fixedClass() {
-      return this.isFixed ? "fixed" : "absolute";
+      // На мобильных всегда absolute, на десктопе - fixed при прокрутке
+      return this.isMobile ? "absolute" : (this.isFixed ? "fixed" : "absolute");
     },
     formattedStartDate() {
       return this.dateToISOString(this.startDate);
@@ -207,19 +222,33 @@ totalPrice() {
     }, null);
 
     total += bestPeriod.price;
-    current.setDate(current.getDate() + 1);
-  }
 
-  return total;
-},
+        total += bestPeriod.price;
+        current.setDate(current.getDate() + 1);
+      }
+
+      return total;
+    },
     showPrice() {
       return this.totalPrice > 0 && !this.hasErrors && this.startDate && this.endDate;
     },
+    firstNightPrice() {
+      // Цена за первые сутки (используется как предоплата)
+      if (!this.startDate || !this.endDate || this.startDate >= this.endDate) return 0;
+      const start = new Date(this.startDate); start.setHours(0, 0, 0, 0);
+      const suitable = this.pricePeriods.filter(period => {
+        const ps = new Date(period.start_date); ps.setHours(0, 0, 0, 0);
+        const pe = new Date(period.end_date);   pe.setHours(0, 0, 0, 0);
+        return start >= ps && start <= pe && period.number_of_guests >= this.guestsCount;
+      });
+      if (!suitable.length) return 0;
+      return suitable.reduce((min, p) => (!min || p.price < min.price ? p : min), null).price;
+    },
     hasErrors() {
-          // if (this.dateError){
-          //   this.$emit('update:startDate', null);
-          //   this.$emit('update:endDate', null);
-          // }
+      // if (this.dateError){
+      //   this.$emit('update:startDate', null);
+      //   this.$emit('update:endDate', null);
+      // }
       return this.dateError || this.guestsError;
     },
     canBook() {
@@ -247,17 +276,34 @@ totalPrice() {
     }
   },
   methods: {
-    handleGuestsUpdate(count) {
-    this.$emit('update:guestsCount', count);
-  },
+    checkMobile() {
+      this.isMobile = window.innerWidth <= 768;
+      // Если это мобильное устройство, принудительно отключаем фиксацию
+      if (this.isMobile) {
+        this.isFixed = false;
+      } else {
+        // На десктопе запускаем проверку позиции при скролле
+        this.handleScroll();
+      }
+    },
+    
     handleScroll() {
+      // Если мобильное устройство - не применяем фиксацию
+      if (this.isMobile) {
+        this.isFixed = false;
+        return;
+      }
+
+      // Учитываем высоту фиксированной шапки навигации, чтобы форма не заезжала под неё
+      const nav = document.querySelector('.main-nav');
+      const navHeight = nav ? nav.offsetHeight : 0;
       const blockPosition = this.$refs.targetBlock.getBoundingClientRect().top + window.scrollY;
-      this.isFixed = window.scrollY >= blockPosition; // Меняем значение при прокрутке вниз
+      this.isFixed = window.scrollY + navHeight >= blockPosition;
     },
 
     handleKeyPress: function(event) {
-    if (event.key === 'Escape') {
-      this.handleClear();
+      if (event.key === 'Escape') {
+        this.handleClear();
     }
   },
     handleDateError(hasError) {
@@ -273,7 +319,9 @@ totalPrice() {
         this.$emit('booking-submit', {
           startDate: this.startDate,
           endDate: this.endDate,
-          guests: this.guestsCount
+          guests: this.guestsCount,
+          totalPrice: this.totalPrice,
+          prepayment: this.firstNightPrice,
         });
       }
     },
@@ -329,19 +377,21 @@ totalPrice() {
     }
   },  
   async mounted() {
+    this.checkMobile();
     window.addEventListener("scroll", this.handleScroll);
+    window.addEventListener("resize", this.checkMobile);
     document.addEventListener('click', this.handleClickOutside);
-  window.addEventListener('keydown', (e) => this.handleKeyPress(e)); // Исправлено: привязка контекста
-
+    window.addEventListener('keydown', (e) => this.handleKeyPress(e));
   },
   beforeUnmount() {
     window.removeEventListener("scroll", this.handleScroll);
+    window.removeEventListener("resize", this.checkMobile);
     document.removeEventListener('click', this.handleClickOutside);
-  window.removeEventListener('keydown', (e) => this.handleKeyPress(e)); // Аналогично
-
+    window.removeEventListener('keydown', (e) => this.handleKeyPress(e));
   }
 };
 </script>
+
 <style scoped>
 .booking-form {
   box-shadow: rgba(0, 0, 0, 0.12) 0px 6px 16px;
@@ -351,7 +401,6 @@ totalPrice() {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   background: #ffffff;
-  max-width: 358px;
   
 }
 
@@ -360,8 +409,17 @@ totalPrice() {
 }
 
 .fixed {
-  top: 0;
+  top: var(--nav-height, 64px);
   position: fixed;
+  max-width: 352px;
+}
+
+/* Мобильная версия - отключаем фиксацию */
+@media (max-width: 768px) {
+  .booking-form {
+    position: relative !important;
+    top: auto !important;
+  }
 }
 
 
@@ -381,28 +439,47 @@ h6{
 .guests-input{
   border: 1px solid rgb(66, 66, 66);
   border-radius: 0 0 8px 8px;
-  padding: 10px;
+  padding: 4px 8px;
   border-top: none;
-    
-  
-
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
+.guests-input :deep(.guests-container){
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: static !important;
+  padding: 0 !important;
+  border: none !important;
+  width: 100%;
+}
 
-.guests-container>.guests-controls{
-  top:0
+.guests-input :deep(.guests-container > input),
+.guests-input :deep(#guestsInput){
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 !important;
+  width: auto !important;
+  text-align: left;
+}
+
+.guests-input :deep(.guests-controls){
+  position: static !important;
+  transform: translateY(-8PX) !important;
+  top: auto !important;
+  right: auto !important;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .status{
   margin: 10px  0  20px 0 ;
 }
 
-.guests-container{
-  padding: 0;
-  
-}
-
 .input-group-inp{
+  font-size: 12px;
   width: 100%;
     outline: none;
   box-shadow: none;
@@ -420,25 +497,45 @@ h6{
 }
 
 .input-group {
-  padding: 10px;
+  padding: 4px 8px;
   border: 1px solid rgb(66, 66, 66);
-  
+  position: relative;
 }
 
-.input-group>div{
-  font-size: 12px;
+.input-group--end { padding-right: 28px; }
+
+.input-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-label {
+.input-clear:hover {
+  opacity: 1;
+  color: #222;
+  background: rgba(0, 0, 0, 0.06);
+}
+.label {
   font-size: 0.9em;
   margin-bottom: 5px;
   color: #666;
 }
 
-
-
 .datepicker-wrapper {
-  
   position: absolute;
   z-index: 10000;
   width: 700px;
@@ -512,4 +609,18 @@ label {
   color: rgb(122, 104, 104);
 }
 
+/* Мобильная адаптация для календаря */
+@media (max-width: 768px) {
+  .datepicker-wrapper {
+    width: 100vw;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    top: 50%;
+    transform: translate(-50%, -50%);
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+  }
+}
 </style>
