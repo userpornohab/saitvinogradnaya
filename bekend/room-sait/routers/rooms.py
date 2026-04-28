@@ -93,7 +93,7 @@ async def upload_photos(
         db.rollback()
         raise HTTPException(500, f"Error uploading photos: {str(e)}")
 
-@router.get("/{room_id}/", response_model=RoomResponse)
+@router.get("/{room_id}", response_model=RoomResponse)
 def get_room(room_id: int, db: Session = Depends(get_db)):
     room = db.query(Room)\
         .options(

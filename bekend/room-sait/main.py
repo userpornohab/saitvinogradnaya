@@ -1,7 +1,8 @@
 # main.py
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import event
 from pathlib import Path
 import shutil
@@ -19,8 +20,22 @@ from routers import (
     site  
 )
 
-app = FastAPI(redirect_slashes=False)
+app = FastAPI()
 
+
+# Middleware для корректной схемы за Traefik (чтобы редиректы были https://)
+class ProxyHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        proto = request.headers.get("x-forwarded-proto", "http")
+        if proto == "https":
+            request.scope["scheme"] = "https"
+        host = request.headers.get("x-forwarded-host")
+        if host:
+            request.scope["server"] = (host, 443 if proto == "https" else 80)
+        response = await call_next(request)
+        return response
+
+app.add_middleware(ProxyHeadersMiddleware)
 
 # Настройки CORS
 app.add_middleware(

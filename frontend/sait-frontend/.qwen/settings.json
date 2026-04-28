@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem"
+      ]
+    },
+    "git-mcp Docs": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://gitmcp.io/{owner}/{repo}"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    },
+    "@21st-dev/magic": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@21st-dev/magic@latest",
+        "API_KEY=\"your-api-key\""
+      ]
+    }
+  },
+  "$version": 3,
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(timeout *)",
+      "Bash(move *)",
+      "Bash(taskkill *)",
+      "mcp__@21st-dev/magic__21st_magic_component_builder",
+      "Bash(npx *)",
+      "Bash(findstr *)",
+      "Bash(powershell *)",
+      "Bash(del *)",
+      "Bash(node *)"
+    ]
+  },
+  "mcp": {
+    "excluded": []
+  }
+}

@@ -249,7 +249,7 @@ def delete_testimonial(
     return {"message": "Testimonial deleted"}
 
 
-@router.get("/faqs/", response_model=List[FAQResponse])
+@router.get("/faqs", response_model=List[FAQResponse])
 def get_faq_info(db: Session = Depends(get_db)):
     faq = db.query(FAQ).all()
     return faq
