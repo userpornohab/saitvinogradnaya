@@ -234,7 +234,6 @@ export default {
   },
   methods: {
     handleSubmit() {
-      console.log('RoomEditor handleSubmit - formData:', JSON.stringify(this.formData));
       this.$emit('submit', { ...this.formData });
     },
     isSelected(type, id) {

@@ -470,8 +470,6 @@ export default {
     async handleRoomSubmit(formData) {
       try {
         const roomData = { ...this.newRoom, ...formData };
-        console.log('handleRoomSubmit - formData:', formData);
-        console.log('handleRoomSubmit - roomData:', roomData);
         let response;
         if (this.editingRoom || this.selectedRoom) {
           const id = this.selectedRoom?.id || this.editingRoom?.id;

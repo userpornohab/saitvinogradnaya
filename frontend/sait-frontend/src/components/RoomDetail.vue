@@ -24,12 +24,14 @@
           <img :src="getPhotoUrl(photo.url)" :alt="room.title" />
         </div>
       </div>
-      <PhotoModal
-        v-model="isModalOpen"
-        :photos="fullPhotos"
-        :initialIndex="currentPhotoIndex"
-        :roomTitle="room?.title || ''"
-      />
+      <Teleport to="body">
+        <PhotoModal
+          v-model="isModalOpen"
+          :photos="fullPhotos"
+          :initialIndex="currentPhotoIndex"
+          :roomTitle="room?.title || ''"
+        />
+      </Teleport>
       <div class="room_detail_wrapper">
         <div class="room_detail_wrapper_left">
           <div class="room_detail_about">
@@ -184,11 +186,13 @@
   </div>
 
     <!-- Telegram booking confirmation modal -->
-    <TelegramBookingModal
-      v-if="telegramModalOpen"
-      v-model="telegramModalOpen"
-      :booking-data="telegramBookingData"
-    />
+    <Teleport to="body">
+      <TelegramBookingModal
+        v-if="telegramModalOpen"
+        v-model="telegramModalOpen"
+        :booking-data="telegramBookingData"
+      />
+    </Teleport>
   </section>
 </template>
 

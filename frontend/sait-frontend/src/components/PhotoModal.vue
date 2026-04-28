@@ -271,7 +271,7 @@ export default {
   position: fixed;
   inset: 0;
   background: rgb(255, 255, 255);
-  z-index: 2000;
+  z-index: 9999;
   /* Единственный скролл — у оверлея. Внутренний контент растёт свободно. */
   overflow-y: auto;
   overscroll-behavior: contain;

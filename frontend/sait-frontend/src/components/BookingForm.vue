@@ -139,7 +139,7 @@ export default {
       required: true
     },
   },
-  emits: ['update:startDate', 'update:endDate', 'booking-change', 'booking-submit', 'close'],
+  emits: ['update:startDate', 'update:endDate', 'update:guestsCount', 'booking-change', 'booking-submit', 'close'],
   data() {
     return {
       showDatePicker: false,
@@ -222,8 +222,6 @@ totalPrice() {
     }, null);
 
     total += bestPeriod.price;
-
-        total += bestPeriod.price;
         current.setDate(current.getDate() + 1);
       }
 
@@ -276,6 +274,9 @@ totalPrice() {
     }
   },
   methods: {
+    handleGuestsUpdate(newCount) {
+      this.$emit('update:guestsCount', newCount);
+    },
     checkMobile() {
       this.isMobile = window.innerWidth <= 768;
       // Если это мобильное устройство, принудительно отключаем фиксацию
