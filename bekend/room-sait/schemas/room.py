@@ -110,12 +110,12 @@ class BookingResponse(BookingUpdate):
         orm_mode = True
 
 class RoomBase(BaseModel):
-    id: int
+    id: Optional[int] = None
     title: str
     description: str
     max_guests: int
     number_of_rooms: int
-    title_dop: str
+    title_dop: Optional[str] = None
     floor: Optional[int] = None  # Добавленное поле
 
 
