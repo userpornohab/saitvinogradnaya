@@ -176,7 +176,7 @@
 import { API_BASE_URL } from '@/api';
 export default {
   name: 'RoomEditor',
-  emits: ['submit', 'cancel', 'toggle-amenity-form', 'toggle-bed-form', 'toggle-amenity', 'toggle-bed', 'add-amenity', 'add-bed', 'upload-photos', 'update-form'],
+  emits: ['submit', 'cancel', 'toggle-amenity-form', 'toggle-bed-form', 'toggle-amenity', 'toggle-bed', 'add-amenity', 'add-bed', 'upload-photos', 'update-form', 'delete-amenity', 'delete-bed', 'set-main-photo', 'delete-photo', 'photo-upload'],
   props: {
     room: { type: Object, default: null },
     isNew: { type: Boolean, default: false },
@@ -255,9 +255,6 @@ export default {
       this.newBedIcon = e.target.files[0];
     }
   },
-  emits: ['submit', 'cancel', 'toggle-amenity', 'toggle-bed', 'toggle-amenity-form', 'toggle-bed-form',
-          'add-amenity', 'add-bed', 'delete-amenity', 'delete-bed', 'set-main-photo', 'delete-photo',
-          'photo-upload', 'upload-photos']
 }
 </script>
 
