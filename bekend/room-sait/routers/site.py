@@ -10,7 +10,8 @@ from schemas.room import (
     TestimonialResponse,
     FAQCreate,
     SiteInfoBase,
-    FAQResponse
+    FAQResponse,
+    FAQBase
 )
 from auth.dependencies import check_superuser
 from pathlib import Path
@@ -246,6 +247,12 @@ def delete_testimonial(
     db.delete(testimonial)
     db.commit()
     return {"message": "Testimonial deleted"}
+
+
+@router.get("/faqs/", response_model=List[FAQResponse])
+def get_faq_info(db: Session = Depends(get_db)):
+    faq = db.query(FAQ).all()
+    return faq
 
 @router.post("/faqs", response_model=FAQResponse, dependencies=[Depends(check_superuser)])
 def add_faq(

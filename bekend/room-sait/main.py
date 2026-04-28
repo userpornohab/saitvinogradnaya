@@ -19,7 +19,7 @@ from routers import (
     site  
 )
 
-app = FastAPI()
+app = FastAPI(redirect_slashes=False)
 
 
 # Настройки CORS

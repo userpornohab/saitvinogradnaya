@@ -7,7 +7,7 @@ import os
 from typing import List
 from database.database import get_db
 from models.room import Room, RoomPhoto, PricePeriod, Amenity, RoomAmenity, Booking, RoomBedOption, BedOption
-from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomFilter, RoomUpdate, RoomBase
+from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomPhotoResponse, RoomFilter, RoomUpdate, RoomBase
 from auth.dependencies import check_superuser
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
@@ -48,7 +48,7 @@ def create_room(room_data: RoomCreate, db: Session = Depends(get_db)):
     db.commit()
     return db_room
 
-@router.post("/{room_id}/upload-photos", response_model=List[RoomPhotoBase], dependencies=[Depends(check_superuser)])
+@router.post("/{room_id}/upload-photos", response_model=List[RoomPhotoResponse], dependencies=[Depends(check_superuser)])
 async def upload_photos(
     room_id: int,
     files: List[UploadFile] = File(...),
@@ -93,7 +93,7 @@ async def upload_photos(
         db.rollback()
         raise HTTPException(500, f"Error uploading photos: {str(e)}")
 
-@router.get("/{room_id}", response_model=RoomResponse)
+@router.get("/{room_id}/", response_model=RoomResponse)
 def get_room(room_id: int, db: Session = Depends(get_db)):
     room = db.query(Room)\
         .options(
