@@ -180,17 +180,18 @@
       </div>
     </div>
 
-    <!-- Модальное окно для фотографий двора -->
-    <PhotoModal
-      
-      tabindex="0"
+    <Teleport to="body">
+      <PhotoModal
 
-      v-if="isDvorModalOpen"
-      v-model="isDvorModalOpen"
-      :photos="processedDvorPhotos"
-      :initialIndex="dvorModalInitialIndex"
-      roomTitle="Двор"
-    />
+        tabindex="0"
+
+        v-if="isDvorModalOpen"
+        v-model="isDvorModalOpen"
+        :photos="processedDvorPhotos"
+        :initialIndex="dvorModalInitialIndex"
+        roomTitle="Двор"
+      />
+    </Teleport>
   </div>
 </template>
 

@@ -163,6 +163,7 @@ export default {
       isAuthenticated: false,
       isAdmin: false,
       mobileMenuOpen: false,
+      isMobileScreen: window.innerWidth <= 768,
       sectionLinks: [
         { id: 'hero',       label: 'Поиск' },
         { id: 'about',      label: 'О нас' },
@@ -180,6 +181,8 @@ export default {
   computed: {
     showNavigation() {
       // Скрываем навигацию на страницах входа/регистрации
+      // На RoomDetail скрываем только на мобильных
+      if (this.$route.name === 'RoomDetail' && this.isMobileScreen) return false;
       return !['Login', 'SignUp'].includes(this.$route.name);
     },
     isHomePage() {
@@ -188,6 +191,13 @@ export default {
   },
   async created() {
     await this.checkAuth();
+  },
+  mounted() {
+    this._onResize = () => { this.isMobileScreen = window.innerWidth <= 768; };
+    window.addEventListener('resize', this._onResize);
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this._onResize);
   },
   watch: {
     $route() {
