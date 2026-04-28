@@ -467,9 +467,9 @@ export default {
     },
 
     // === CRUD номеров ===
-    async handleRoomSubmit() {
+    async handleRoomSubmit(formData) {
       try {
-        const roomData = { ...this.newRoom };
+        const roomData = { ...this.newRoom, ...formData };
         let response;
         if (this.editingRoom || this.selectedRoom) {
           const id = this.selectedRoom?.id || this.editingRoom?.id;

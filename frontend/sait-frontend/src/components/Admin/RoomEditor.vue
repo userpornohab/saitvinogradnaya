@@ -5,7 +5,7 @@
       <button v-if="!isNew" @click="$emit('cancel')" class="btn-close">✕</button>
     </div>
 
-    <form @submit.prevent="$emit('submit')" class="room-form">
+    <form @submit.prevent="$emit('submit', { ...formData })" class="room-form">
       <div class="form-grid">
         <div class="form-group">
           <label>Название</label>
