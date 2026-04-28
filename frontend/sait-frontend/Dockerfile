@@ -1,5 +1,8 @@
 FROM node:20 AS build
 
+ARG VUE_APP_API_URL=https://api.vinegrape.ru
+ENV VUE_APP_API_URL=$VUE_APP_API_URL
+
 WORKDIR /app
 
 COPY package*.json ./
