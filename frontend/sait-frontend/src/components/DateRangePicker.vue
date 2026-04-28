@@ -1,21 +1,44 @@
 <template>
-  <div>
+  <div :class="{ 'single-month': singleMonth }" style="width: 100%; height: 100%;">
+    <div class="head-cal-conter">
+      <div class="head-cal">
+            <div style="width: 100%; display: flex; margin-bottom: 10px; ">
+              <div class="calendar-name">Календарь</div>
+              <button v-if="isMobile" class="close-btn" @click="$emit('close')">✕</button>
+            </div>
+            <hr>
+            <div class="weekday-mobail" >
+              <div 
+                    v-for="day in weekDays" 
+                    :key="day"
+                  >
+                    {{ day }}
+                  </div>
+            </div>
+            <hr>
+            
+          </div>
+    </div>
+    
+    
+    
+    
     <div class="navigation">
-      <button 
-        class="nav-btn-start" 
-        @click="changeMonth(-1)" 
+      <button
+        class="nav-btn-start"
+        @click="changeMonth(-1)"
         :class="{ visible: canShowPrev }"
       >
         <img class="svg_prev" src="@/assets/icons/arrow-left.svg" alt="Назад">
       </button>
-      
-      <div class="selectors">
+
+      <div v-if="!singleMonth" class="selectors">
         <div class="year-select">
-          <div 
-            v-for="year in years" 
-            :key="year" 
-            class="year-option" 
-            :class="{ 
+          <div
+            v-for="year in years"
+            :key="year"
+            class="year-option"
+            :class="{
               selected: year === currentYear,
               disabled: isYearDisabled(year)
             }"
@@ -24,11 +47,11 @@
             {{ year }}
           </div>
         </div>
-        
+
         <div class="month-select">
-          <div 
-            v-for="(month, index) in months" 
-            :key="index" 
+          <div
+            v-for="(month, index) in months"
+            :key="index"
             class="month-option"
             :class="{
               selected: index === currentMonth,
@@ -40,17 +63,20 @@
           </div>
         </div>
       </div>
-      
-      <button 
-        class="nav-btn-end" 
-        @click="changeMonth(1)" 
+
+      <div v-else class="current-month-label">{{ calendars[0]?.title || '' }}</div>
+
+      <button
+        class="nav-btn-end"
+        @click="changeMonth(1)"
         :class="{ nevisible: !canShowNext }"
       >
         <img class="svg_nex" src="@/assets/icons/arrow-right.svg" alt="Вперед">
       </button>
     </div>
 
-    <div class="calendar-grid">
+    <div class="calendar-grid"
+        :class="{ 'no-margin': noMargin }">
       <div 
         class="calendar-wrapper" 
         v-for="(calendar, index) in calendars" 
@@ -78,17 +104,16 @@
         </div>
       </div>
     </div>
+
     <div class="flex">
       <CalendarStatus 
-      :start-date="startDate"
-      :end-date="endDate"
-      :occupied-dates="occupiedDates"
-      :number-of-rooms="numberOfRooms"
-      @error = 'ErorDate'
+        :start-date="startDate"
+        :end-date="endDate"
+        :occupied-dates="occupiedDates"
+        :number-of-rooms="numberOfRooms"
+        @error="ErorDate"
       />
-    <button id="clearBtn" @click="$emit('clear')">Очистить</button>
-    </div>
-    
+          </div>
   </div>
 </template>
 
@@ -100,6 +125,7 @@ export default {
   components: {
     CalendarStatus
   },
+  
   props: {
     startDate: Date,
     endDate: Date,
@@ -107,26 +133,32 @@ export default {
       type: Object,
       default: () => ({}),
     },
+    noMargin: {
+      type: Boolean,
+      default: false
+    },
     numberOfRooms: {
       type: Number,
       default: 0,
     },
-    handleClear: { // Принимаем метод через пропсы
+    handleClear: {
       type: Function,
       required: true,
     },
-    pricePeriods: { // Добавляем новый пропс с ценовыми периодами
+    pricePeriods: {
       type: Array,
       default: () => []
+    },
+    isMobile: {               // Новый пропс для определения мобильности
+      type: Boolean,
+      default: false
+    },
+    singleMonth: {            // Показывать только один месяц + стрелки (для room_detail_datapiker)
+      type: Boolean,
+      default: false
     }
   },
-  methods:{
-    ErorDate(post){
-      if (post) return post
-      return false
-    }
-  },
-  emits: ['update:startDate', 'update:endDate', 'clear'],
+  emits: ['update:startDate', 'update:endDate', 'clear', 'close'], // Добавлено событие close
   setup(props, { emit }) {
     const currentYear = ref(new Date().getFullYear());
     const currentMonth = ref(new Date().getMonth());
@@ -139,8 +171,10 @@ export default {
     ];
     const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+    // Генерация календарей: на мобильных показываем только один месяц
     const calendars = computed(() => {
-      return [0, 1].map(offset => {
+      const monthsToShow = props.singleMonth ? 1 : (props.isMobile ? 12 : 2);
+      return Array.from({ length: monthsToShow }, (_, offset) => {
         const year = currentYear.value;
         const month = currentMonth.value + offset;
         const date = new Date(year, month);
@@ -196,23 +230,17 @@ export default {
       return [current, current + 1, current + 2];
     });
 
-const isDateOccupied = (date) => {
-  if (!props.numberOfRooms || !date) return false;
-  
-  // Смещаем дату на 1 день назад для проверки занятости
-  const checkDate = new Date(date);
-  checkDate.setDate(date.getDate() - 1);
-  const checkDateStr = formatDate(checkDate);
-  
-  // Также проверяем саму дату (без смещения)
-  const currentDateStr = formatDate(date);
-  
-  // Дата считается занятой, если занята смещенная дата ИЛИ текущая дата
-  const isShiftedOccupied = (props.occupiedDates[checkDateStr] || 0) >= props.numberOfRooms;
-  const isCurrentOccupied = (props.occupiedDates[currentDateStr] || 0) >= props.numberOfRooms;
-  
-  return isShiftedOccupied || isCurrentOccupied;
-};
+    const isDateOccupied = (date) => {
+      if (!props.numberOfRooms || !date) return false;
+      const checkDate = new Date(date);
+      checkDate.setDate(date.getDate() - 1);
+      const checkDateStr = formatDate(checkDate);
+      const currentDateStr = formatDate(date);
+      const isShiftedOccupied = (props.occupiedDates[checkDateStr] || 0) >= props.numberOfRooms;
+      const isCurrentOccupied = (props.occupiedDates[currentDateStr] || 0) >= props.numberOfRooms;
+      return isShiftedOccupied || isCurrentOccupied;
+    };
+
     const selectDate = (date) => {
       if (!props.startDate || props.endDate) {
         emit('update:startDate', date);
@@ -242,47 +270,44 @@ const isDateOccupied = (date) => {
     };
 
     const hasPriceForDate = (date) => {
-          if (!props.pricePeriods || props.pricePeriods.length === 0) return true;
-          
-          return props.pricePeriods.some(period => {
-            const start = new Date(period.start_date);
-            const end = new Date(period.end_date);
-            const dateObj = new Date(date);
-            return formatDate(dateObj) >= formatDate(start) && formatDate(dateObj) <= formatDate(end);
-          });
-        };
+      if (!props.pricePeriods || props.pricePeriods.length === 0) return true;
+      return props.pricePeriods.some(period => {
+        const start = new Date(period.start_date);
+        const end = new Date(period.end_date);
+        const dateObj = new Date(date);
+        return formatDate(dateObj) >= formatDate(start) && formatDate(dateObj) <= formatDate(end);
+      });
+    };
 
-const getDayClasses = (cell) => {
-  if (!cell.date) return 'empty';
-  
-  const date = cell.date.getTime();
-  const isStart = date === props.startDate?.getTime();
-  const isValidEnd = props.endDate 
-    ? props.endDate >= props.startDate 
-    : hoverEndDate.value >= props.startDate;
-  const isEnd = (date === props.endDate?.getTime() && isValidEnd) 
-    || (!props.endDate && date === hoverEndDate.value?.getTime() && isValidEnd);
-  const inRange = props.startDate && props.endDate && 
-                date > props.startDate.getTime() && 
-                date < props.endDate.getTime();
-  const inHoverRange = props.startDate && hoverEndDate.value && 
-                     date > props.startDate.getTime() && 
-                     date < hoverEndDate.value.getTime();
-  const isDisabled = date < new Date().setHours(0,0,0,0) || 
-                    isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
-  
-  // Используем смещенную проверку занятости
-  const isOccupied = isDateOccupied(cell.date);
-  const noPrice = !hasPriceForDate(cell.date);
+    const getDayClasses = (cell) => {
+      if (!cell.date) return 'empty';
+      const date = cell.date.getTime();
+      const isStart = date === props.startDate?.getTime();
+      const isValidEnd = props.endDate 
+        ? props.endDate >= props.startDate 
+        : hoverEndDate.value >= props.startDate;
+      const isEnd = (date === props.endDate?.getTime() && isValidEnd) 
+        || (!props.endDate && date === hoverEndDate.value?.getTime() && isValidEnd);
+      const inRange = props.startDate && props.endDate && 
+                    date > props.startDate.getTime() && 
+                    date < props.endDate.getTime();
+      const inHoverRange = props.startDate && hoverEndDate.value && 
+                         date > props.startDate.getTime() && 
+                         date < hoverEndDate.value.getTime();
+      const isDisabled = date < new Date().setHours(0,0,0,0) || 
+                        isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
+      const isOccupied = isDateOccupied(cell.date);
+      const noPrice = !hasPriceForDate(cell.date);
 
-  return {
-    'selected': isStart || isEnd || inRange || inHoverRange,
-    'start-date': isStart,
-    'end-date': isEnd,
-    'occupied': isOccupied && !isDisabled,
-    'disabled': isDisabled || noPrice || isOccupied,
-  };
-};
+      return {
+        'selected': isStart || isEnd || inRange || inHoverRange,
+        'start-date': isStart,
+        'end-date': isEnd,
+        'occupied': isOccupied && !isDisabled,
+        'disabled': isDisabled || noPrice || isOccupied,
+      };
+    };
+
     const changeMonth = (offset) => {
       const newMonth = currentMonth.value + offset;
       const newYear = currentYear.value;
@@ -354,7 +379,88 @@ const getDayClasses = (cell) => {
   
   <style scoped>
 
-  
+  .close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 10px;
+  color: #333;
+}
+.head-cal-conter{
+  display: none;
+}
+
+/* Адаптация под мобильные экраны */
+@media (max-width: 768px) {
+
+
+  .calendar-wrapper {
+    min-width: 100%;
+  }
+  .flex{
+    padding: 20px ;
+  }
+  .day {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  .weekday-mobail{
+    margin: 5px 0;
+    color: #000000;
+    display: grid;
+    justify-items: center;
+    justify-content: center;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .weekday {
+    display: none;
+  }
+  .calendar-grid {
+    padding: 20px 0 0 0 ;
+    flex-direction: column;
+    align-items: center;
+  }
+  .navigation {
+    display: none;
+
+  }
+  .head-cal-conter{
+  display: block;
+}
+  .head-cal{
+  padding: 20px 20px 0 20px ;
+  position: fixed;
+  left: 0;
+  right: 0;
+
+  background-color: #ffffff;
+  z-index: 100000000;
+  }
+
+  .nav-contr{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    width: 100%;
+  }
+
+  .current-month-label {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--color-gray-900);
+    text-align: center;
+    flex: 1;
+  }
+
+  .close-btn {
+    margin-left: auto;
+  }
+}
 
   .calendar-wrapper{
     width: 315px;
@@ -364,10 +470,9 @@ const getDayClasses = (cell) => {
   .flex{
     display: flex;
     justify-content: space-between;
-    padding: 0 20px;
   }
   
-  
+
   .nav-btn-start.visible{
     background: none;
     color: rgb(255, 255, 255);
@@ -394,14 +499,13 @@ const getDayClasses = (cell) => {
     color: rgb(0, 0, 0);
     opacity: 0.5;
   }
-  
-  .navigation {
-    display: flex;
+  .nav-contr{
+        display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
     color: #000000;
   }
+
   
   .nav-btn-start {
     box-sizing: border-box;
@@ -450,10 +554,12 @@ const getDayClasses = (cell) => {
     flex-direction: column;
     gap: 10px;
     flex-grow: 1;
+    color: #000000;
   }
   
   .month-select, .year-select {
     display: flex;
+
     flex: 0 0 16.66%;
     flex-wrap: wrap;
   }
@@ -464,7 +570,7 @@ const getDayClasses = (cell) => {
   
   .month-option, .year-option {
     font-size: 12px;
-    padding: 3px 6px;
+    padding: 2px 4px;
     border-radius: 4px;
     cursor: pointer;
   }
@@ -506,6 +612,7 @@ const getDayClasses = (cell) => {
   
 }
 .day.selected.occupied{
+  
   background-color:#4c4cf771 ;
   color: #5a0202;
   border-bottom: 1px solid #5a0202;
@@ -516,12 +623,13 @@ const getDayClasses = (cell) => {
 .month-title {
   text-align: center;
   font-weight: bold;
-  margin-bottom: 15px;
+  margin: 15px 0;
   color: #333;
 }
 
 .calendar {
   display: grid;
+  justify-items: center; 
   justify-content: center;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
@@ -538,20 +646,23 @@ const getDayClasses = (cell) => {
 }
 
 .day {
+  caret-color: transparent;
   box-sizing: border-box;
   width: 45px;
   height: 45px;
-  text-align: center;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0);
+  /* можно добавить line-height: 1; для контроля */
 }
 
 .day.selected {
   background: #c6c4fd;
   color: white;
+  width: 100%;
 }
 
 .day.start-date {
@@ -568,31 +679,29 @@ const getDayClasses = (cell) => {
   background: linear-gradient(to right, #c6c4fd, #ffffff, #ffffff);
 }
 
-.day.start-date::before {
-  position: absolute;
-  content: " ";
-  border-radius: 50%;
-  top: 0;
-  z-index: -1;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(to left, #752424, #4c4cf7);
-}
-
+.day.start-date::before,
 .day.end-date::before {
   position: absolute;
   content: " ";
   border-radius: 50%;
   top: 0;
-  z-index: -1;
-  left: 0;
-  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 45px;
   height: 100%;
+  z-index: -1;
+}
+
+.day.start-date::before {
   background: linear-gradient(to right, #752424, #4c4cf7);
 }
 
+.day.end-date::before {
+  background: linear-gradient(to left, #4c4cf7, #752424);
+}
 
+
+/* unused — button removed */
 #clearBtn {
   height: fit-content;
   padding: 6px 12px;
@@ -614,7 +723,9 @@ const getDayClasses = (cell) => {
   align-items: center;
   text-align: center;
 }
-
+hr{
+  margin: 0;
+}
 .disabled {
   opacity: 0.3;
   pointer-events: none;
@@ -622,5 +733,55 @@ const getDayClasses = (cell) => {
 
 .empty {
   pointer-events: none;
+}
+
+.calendar-name{
+  color: #000000;
+  
+  display: flex;
+  flex-direction: column ;
+  justify-content: center;
+}
+
+.calendar-grid.no-margin {
+  padding: 0;
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin: 0 auto 12px;
+  box-sizing: border-box;
+}
+
+.current-month-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  color: #222;
+}
+
+.navigation .selectors {
+  flex: 1;
+}
+
+/* === room_detail_datapiker: только один месяц + стрелки === */
+.single-month .navigation {
+  display: flex;
+  max-width: 420px;
+}
+.single-month .calendar-grid { padding: 0; justify-content: center; }
+.single-month .month-title { display: none; }
+.single-month .head-cal-conter { display: none !important; }
+.single-month .calendar-wrapper { width: 100%; max-width: 420px; }
+.single-month .calendar-wrapper ~ .calendar-wrapper { display: none; }
+
+@media (max-width: 768px) {
+  .single-month .calendar-grid { padding: 0; }
+  .single-month .weekday { display: block; }
+  .single-month .weekday-mobail { display: none; }
 }
 </style>

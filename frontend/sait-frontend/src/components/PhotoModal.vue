@@ -1,45 +1,92 @@
 <template>
-  <transition name="zoom-fade">
-    <div 
-      v-if="modelValue" 
-      class="modal-overlay"
-      tabindex="0"
-      ref="modal"
-      @keydown="handleKeydown" 
+  <transition name="modal-fade">
+    <div
+      v-if="modelValue"
+      class="photo-modal-overlay"
+      @click="handleOverlayClick"
     >
-      <div 
-        class="carousel-wrapper"
-        ref="wrapper"
-        @mousedown="startDrag"
-        @touchstart.passive="startDrag"
-      >
-        <div 
-          class="carousel-track"
-          :style="trackStyle"
-          ref="track"
-        >
-          <div 
-            v-for="photo in photos" 
-            :key="photo.fullUrl"
-            class="carousel-slide"
+      <div class="photo-modal-content" @click.stop>
+        <!-- Заголовок -->
+        <div class="modal-header">
+          <h3 class="modal-title">{{ roomTitle }} — Фотографии</h3>
+          <button class="modal-close" @click="closeModal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Сетка фото (как на sutochno.ru) -->
+        <div class="photo-grid">
+          <div
+            v-for="(photo, index) in photos"
+            :key="photo.fullUrl || index"
+            class="photo-grid-item"
+            @click="openFullscreen(index)"
           >
-            <img 
-              :src="photo.fullUrl" 
+            <img
+              :src="photo.fullUrl"
               :alt="roomTitle"
-              class="modal-image"
-              @dragstart.prevent
+              loading="lazy"
             />
           </div>
         </div>
       </div>
-      
-      <div class="photo-counter">
-        {{ currentIndex + 1 }} / {{ photos.length }}
+    </div>
+  </transition>
+
+  <!-- Полноэкранный просмотр одного фото -->
+  <transition name="fullscreen-fade">
+    <div
+      v-if="isFullscreenOpen"
+      class="fullscreen-viewer"
+      @click="handleViewerClick"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerUp"
+    >
+      <button class="viewer-close" @click.stop="closeFullscreen">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+      <button class="viewer-nav viewer-prev" @click.stop="prevPhoto">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+
+      <!-- Трек из всех слайдов: сдвигается по горизонтали -->
+      <div
+        class="viewer-track"
+        :class="{ 'is-dragging': isDragging }"
+        :style="trackStyle"
+      >
+        <div
+          v-for="(photo, i) in photos"
+          :key="photo.fullUrl || i"
+          class="viewer-slide"
+        >
+          <img
+            :src="photo.fullUrl"
+            :alt="roomTitle"
+            class="viewer-image"
+            draggable="false"
+            @dragstart.prevent
+            @click.stop
+          />
+        </div>
       </div>
-      
-      <button class="close-button" @click="closeModal">Закрыть</button>
-      <button class="nav-button prev" @click.stop="prevPhoto">‹</button>
-      <button class="nav-button next" @click.stop="nextPhoto">›</button>
+
+      <button class="viewer-nav viewer-next" @click.stop="nextPhoto">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </button>
+      <div class="viewer-counter">
+        {{ currentFullscreenIndex + 1 }} / {{ photos.length }}
+      </div>
     </div>
   </transition>
 </template>
@@ -64,332 +111,478 @@ export default {
       default: ''
     }
   },
-  
+
   data() {
     return {
-      currentIndex: this.initialIndex,
-      startX: 0,
-      currentTranslateX: 0,
+      isFullscreenOpen: false,
+      currentFullscreenIndex: 0,
+      // Drag/swipe state
+      dragStartX: null,
+      dragStartY: null,
+      dragDeltaX: 0,
       isDragging: false,
-      slideWidth: 0,
-      containerWidth: 0,
-      dragDistance: 0
+      wasDragged: false,
+      swipeThreshold: 40
     }
   },
-  
+
   computed: {
     trackStyle() {
+      const base = -this.currentFullscreenIndex * 100;
+      const drag = this.isDragging ? this.dragDeltaX : 0;
       return {
-        transform: `translateX(${this.currentTranslateX}px)`,
-        transition: this.isDragging ? 'none' : 'transform 0.4s ease',
-        width: `${this.photos.length * this.slideWidth}px`
-      }
+        transform: `translate3d(calc(${base}% + ${drag}px), 0, 0)`
+      };
     }
   },
-  
+
   watch: {
-    photos: {
-    handler() {
-      this.$nextTick(() => {
-        this.initCarousel();
-      });
-    },
-    deep: true
-  },
-    initialIndex(newIndex) {
-      this.currentIndex = newIndex
-      this.updatePosition()
-    },
-    
     modelValue(newVal) {
-    if (newVal) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', this.handleKeydown);
-      
-      this.$nextTick(() => {
-        this.initCarousel();
-        // Сбросим индекс при открытии
-        this.currentIndex = this.initialIndex;
-        this.updatePosition();
-      });
-    } else {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', this.handleKeydown);
+      if (newVal) {
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', this.handleKeydown);
+      } else {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', this.handleKeydown);
+        this.closeFullscreen();
+      }
     }
-  }
   },
-  
-  mounted() {
-    this.initCarousel();
-    window.addEventListener('resize', this.initCarousel)
-  },
-  
+
   beforeUnmount() {
-    this.cleanupEvents()
-    document.body.style.overflow = ''
-    window.removeEventListener('keydown', this.handleKeydown)
-    window.removeEventListener('resize', this.initCarousel)
+    document.body.style.overflow = '';
+    window.removeEventListener('keydown', this.handleKeydown);
   },
-  
+
   methods: {
-    cleanupEvents() {
-      window.removeEventListener('mousemove', this.dragMove)
-      window.removeEventListener('mouseup', this.endDrag)
-      window.removeEventListener('touchmove', this.dragMove)
-      window.removeEventListener('touchend', this.endDrag)
-    },
-    
-initCarousel() {
-  if (!this.$refs.wrapper) return;
-  
-  // Используем реальную ширину контейнера вместо window.innerWidth
-  this.containerWidth = this.$refs.wrapper.clientWidth;
-  this.slideWidth = this.containerWidth;
-  
-  this.updatePosition();
-},
-    
-    updatePosition() {
-      this.currentTranslateX = -this.currentIndex * this.slideWidth
-    },
-    
     closeModal() {
-      this.$emit('update:modelValue', false)
+      this.$emit('update:modelValue', false);
     },
-    
-    nextPhoto() {
-      if (this.currentIndex < this.photos.length - 1) {
-        this.currentIndex++
-      } else {
-        this.currentIndex = 0
+
+    handleOverlayClick(e) {
+      if (e.target === e.currentTarget) {
+        this.closeModal();
       }
-      this.updatePosition()
     },
-    
+
+    openFullscreen(index) {
+      this.currentFullscreenIndex = index;
+      this.isFullscreenOpen = true;
+    },
+
+    closeFullscreen() {
+      this.isFullscreenOpen = false;
+    },
+
     prevPhoto() {
-      if (this.currentIndex > 0) {
-        this.currentIndex--
+      if (this.currentFullscreenIndex > 0) {
+        this.currentFullscreenIndex--;
       } else {
-        this.currentIndex = this.photos.length - 1
+        this.currentFullscreenIndex = this.photos.length - 1;
       }
-      this.updatePosition()
     },
-    
+
+    nextPhoto() {
+      if (this.currentFullscreenIndex < this.photos.length - 1) {
+        this.currentFullscreenIndex++;
+      } else {
+        this.currentFullscreenIndex = 0;
+      }
+    },
+
+    onPointerDown(e) {
+      if (!this.isFullscreenOpen) return;
+      // Не начинаем drag с кнопок управления
+      if (e.target.closest('.viewer-nav, .viewer-close')) return;
+
+      this.dragStartX = e.clientX;
+      this.dragStartY = e.clientY;
+      this.dragDeltaX = 0;
+      this.isDragging = true;
+      this.wasDragged = false;
+
+      // Захватываем указатель, чтобы move/up приходили даже если курсор покинул элемент
+      const el = e.currentTarget;
+      if (el && el.setPointerCapture && e.pointerId != null) {
+        try { el.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
+      }
+    },
+
+    onPointerMove(e) {
+      if (!this.isDragging || this.dragStartX === null) return;
+      this.dragDeltaX = e.clientX - this.dragStartX;
+      if (Math.abs(this.dragDeltaX) > 5) this.wasDragged = true;
+    },
+
+    onPointerUp(e) {
+      if (!this.isDragging) return;
+      const delta = this.dragDeltaX;
+      this.isDragging = false;
+      this.dragStartX = null;
+      this.dragStartY = null;
+      this.dragDeltaX = 0;
+
+      const el = e && e.currentTarget;
+      if (el && el.releasePointerCapture && e.pointerId != null) {
+        try { el.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+      }
+
+      if (delta <= -this.swipeThreshold) {
+        this.nextPhoto();
+      } else if (delta >= this.swipeThreshold) {
+        this.prevPhoto();
+      }
+    },
+
+    handleViewerClick(e) {
+      // Если только что был свайп — не закрываем окно
+      if (this.wasDragged) {
+        this.wasDragged = false;
+        return;
+      }
+      // Закрываем только при клике на фон (не на фото и не на кнопки)
+      if (e.target === e.currentTarget) {
+        this.closeFullscreen();
+      }
+    },
+
     handleKeydown(e) {
-      if (e.key === 'Escape') this.closeModal()
-      if (e.key === 'ArrowRight') this.nextPhoto()
-      if (e.key === 'ArrowLeft') this.prevPhoto()
-    },
-    
-    startDrag(e) {
-      // Игнорируем кнопки
-      if (e.target.closest('button')) return
-      
-      // Очищаем предыдущие события
-      this.cleanupEvents()
-      
-      this.isDragging = true
-      this.startX = this.getPositionX(e)
-      this.dragDistance = 0
-      
-      // Добавляем обработчики
-      window.addEventListener('mousemove', this.dragMove)
-      window.addEventListener('mouseup', this.endDrag)
-      window.addEventListener('touchmove', this.dragMove, { passive: false })
-      window.addEventListener('touchend', this.endDrag)
-    },
-    
-    dragMove(e) {
-      if (!this.isDragging) return
-      e.preventDefault()
-      
-      const currentX = this.getPositionX(e)
-      this.dragDistance = currentX - this.startX
-      
-      // Обновляем позицию трека
-      this.currentTranslateX = -this.currentIndex * this.slideWidth + this.dragDistance
-    },
-    
-    endDrag() {
-      if (!this.isDragging) return
-      
-      this.isDragging = false
-      this.cleanupEvents()
-      
-      // Порог для смены слайда - 100px или 20% ширины экрана
-      const threshold = Math.min(100, window.innerWidth * 0.2)
-      const absDistance = Math.abs(this.dragDistance)
-      
-      if (absDistance > threshold) {
-        if (this.dragDistance > 0) {
-          this.prevPhoto()
+      if (e.key === 'Escape') {
+        if (this.isFullscreenOpen) {
+          this.closeFullscreen();
         } else {
-          this.nextPhoto()
+          this.closeModal();
         }
-      } else {
-        // Возвращаем на текущую позицию
-        this.updatePosition()
       }
-    },
-    
-    getPositionX(e) {
-      if (e.type.includes('touch')) {
-        return e.touches[0] ? e.touches[0].clientX : e.changedTouches[0].clientX
+      if (this.isFullscreenOpen) {
+        if (e.key === 'ArrowRight') this.nextPhoto();
+        if (e.key === 'ArrowLeft') this.prevPhoto();
       }
-      return e.clientX
     }
   }
 }
 </script>
 
 <style scoped>
-.modal-overlay {
+/* ======================================
+   MODAL OVERLAY & GRID
+   ====================================== */
+.photo-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
+  inset: 0;
+  background: rgb(255, 255, 255);
+  z-index: 2000;
+  /* Единственный скролл — у оверлея. Внутренний контент растёт свободно. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   justify-content: center;
-  align-items: center;
-  z-index: 2000;
-  overflow: hidden;
-  user-select: none;
 }
 
-.carousel-wrapper {
-  width: 90vw;
-  height: 80vh;
+.photo-modal-content {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 900px;
+  /* высота по содержимому — без внутреннего скролла */
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--color-gray-200);
+  position: sticky;
+  top: 0;
+  background: var(--color-white);
+  z-index: 10;
+}
+
+.modal-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-gray-900);
+}
+
+.modal-close {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+  transition: all var(--transition-fast);
+  border: none;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: var(--color-gray-200);
+  color: var(--color-gray-900);
+}
+
+/* ======================================
+   PHOTO GRID — мозаика как в макете
+   ====================================== */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 280px;
+  grid-auto-flow: dense;
+  gap: 10px;
+  padding: var(--spacing-lg);
+}
+
+/* Повторяющийся узор из 6 плиток:
+   1 — большая 2×2 (герой)
+   2, 3 — квадраты в один ряд
+   4 — квадрат слева
+   5 — высокая 1×2 справа
+   6 — квадрат слева под 4 (dense fill) */
+.photo-grid-item:nth-child(6n + 1) {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.photo-grid-item:nth-child(6n + 5) {
+  grid-row: span 2;
+}
+
+@media (max-width: 768px) {
+  .photo-grid {
+    grid-auto-rows: 170px;
+    gap: 8px;
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-grid {
+    grid-auto-rows: 140px;
+    gap: 6px;
+  }
+}
+
+.photo-grid-item {
   overflow: hidden;
+  border-radius: var(--radius-md);
+  cursor: pointer;
   position: relative;
+  background: var(--color-gray-100);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.photo-grid-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  z-index: 1;
+}
+
+.photo-grid-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background var(--transition-fast);
+}
+
+.photo-grid-item:hover::after {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.photo-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+  display: block;
+}
+
+.photo-grid-item:hover img {
+  transform: scale(1.06);
+}
+
+/* ======================================
+   FULLSCREEN VIEWER
+   ====================================== */
+.fullscreen-viewer {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Горизонтальный трек со всеми слайдами */
+.viewer-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
   cursor: grab;
 }
 
-.carousel-wrapper:active {
+.viewer-track.is-dragging {
+  transition: none;
   cursor: grabbing;
 }
 
-.carousel-track {
-  display: flex;
+.viewer-slide {
+  flex: 0 0 100%;
+  width: 100%;
   height: 100%;
-  will-change: transform;
-}
-
-.carousel-slide {
-  width: 90vw;
-  height: 80vh;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.modal-image {
-  max-width: 100%;
-  max-height: 100%;
-  display: block;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+.viewer-image {
+  max-width: 90vw;
+  max-height: 90vh;
   object-fit: contain;
-  pointer-events: none;
+  border-radius: var(--radius-md);
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;  /* все жесты ловит трек/оверлей */
 }
 
-.close-button {
+.viewer-close {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.1);
   color: white;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid white;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
   cursor: pointer;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease;
+  transition: background var(--transition-fast);
 }
 
-.close-button:hover {
-  background: rgba(100, 100, 100, 0.7);
+.viewer-close:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.nav-button {
+.viewer-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.1);
   color: white;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid white;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  font-size: 28px;
-  cursor: pointer;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  z-index: 10;
+  transition: background var(--transition-fast);
 }
 
-.nav-button:hover {
-  background: rgba(100, 100, 100, 0.7);
-  transform: translateY(-50%) scale(1.1);
+.viewer-nav:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.prev {
-  left: 20px;
-}
+.viewer-prev { left: var(--spacing-xl); }
+.viewer-next { right: var(--spacing-xl); }
 
-.next {
-  right: 20px;
-}
-
-.photo-counter {
+.viewer-counter {
   position: absolute;
+  bottom: var(--spacing-xl);
   left: 50%;
-  bottom: 20px;
   transform: translateX(-50%);
-  color: white;
   background: rgba(0, 0, 0, 0.7);
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 16px;
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
   z-index: 10;
 }
 
-/* Анимации */
-.zoom-fade-enter-active,
-.zoom-fade-leave-active {
-  transition: opacity 0.3s ease;
+/* ======================================
+   ANIMATIONS
+   ====================================== */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity var(--transition-slow);
 }
 
-.zoom-fade-enter-active .carousel-wrapper,
-.zoom-fade-leave-active .carousel-wrapper {
-  transition: all 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-.zoom-fade-enter-from,
-.zoom-fade-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to {
   opacity: 0;
 }
 
-.zoom-fade-enter-from .carousel-wrapper {
-  transform: scale(0.8);
+.fullscreen-fade-enter-active,
+.fullscreen-fade-leave-active {
+  transition: opacity var(--transition-slow);
+}
+
+.fullscreen-fade-enter-from,
+.fullscreen-fade-leave-to {
   opacity: 0;
 }
 
-.zoom-fade-enter-to .carousel-wrapper {
-  transform: scale(1);
-  opacity: 1;
+/* Scrollbar styling — применяется к оверлею, т.к. скролл теперь там */
+.photo-modal-overlay::-webkit-scrollbar {
+  width: 10px;
 }
 
-.zoom-fade-leave-to .carousel-wrapper {
-  transform: scale(0.8);
-  opacity: 0;
+.photo-modal-overlay::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+}
+
+.photo-modal-overlay::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: var(--radius-full);
+}
+
+.photo-modal-overlay::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+@media (max-width: 768px) {
+  .photo-modal-overlay {
+    padding: 0;
+  }
+
+  .photo-modal-content {
+    border-radius: 0;
+  }
+
+  .modal-header {
+    padding: var(--spacing-md);
+  }
+
+  .photo-grid {
+    gap: 4px;
+    padding: var(--spacing-md);
+  }
+
+  .viewer-nav {
+    width: 44px;
+    height: 44px;
+  }
+
+  .viewer-prev { left: var(--spacing-md); }
+  .viewer-next { right: var(--spacing-md); }
 }
 </style>

@@ -74,7 +74,7 @@
           >
             {{ cell.day }}
             <div 
-            v-if="cell.date && numberOfRooms > 0" 
+            v-if="cell.date && numberOfRooms > 0 && showAvailability"
             class="availability-info"
           >
             <div class="availability-count">
@@ -119,6 +119,16 @@ export default {
     pricePeriods: { // Добавляем новый пропс с ценовыми периодами
       type: Array,
       default: () => []
+    },
+    // Показывать ли бейдж доступности (X/Y комнат)
+    showAvailability: {
+      type: Boolean,
+      default: true
+    },
+    // Подсвечивать даты, покрытые ценовыми периодами (вместо блокировки дат без цены)
+    highlightPricePeriods: {
+      type: Boolean,
+      default: false
     }
   },
   
@@ -339,12 +349,17 @@ export default {
       }
 
       // Проверяем наличие цены для даты
-      const noPrice = !hasPriceForDate(currentDate);
+      const hasPrice = hasPriceForDate(currentDate);
+      // В режиме выделения ценовых периодов (админ цен) не блокируем даты без цены —
+      // должна быть возможность выбрать диапазон и установить цену.
+      const noPrice = !hasPrice && !props.highlightPricePeriods;
+      const pricedHighlight = hasPrice && props.highlightPricePeriods && (props.pricePeriods?.length > 0);
 
       return {
         'start-date': isStart,
         'end-date': isEnd,
-        'disabled': isDisabled || noPrice, // Добавляем класс disabled если нет цены
+        'disabled': isDisabled || noPrice, // Добавляем класс disabled если нет цены (только вне админ-цен)
+        'has-price': pricedHighlight,
         'full-occupied': available <= 0 && props.numberOfRooms > 0,
         'partially-occupied': available > 0 && available < props.numberOfRooms,
         'booking-period-start': isBookingStart,
@@ -705,6 +720,44 @@ export default {
 
 .full-occupied{
   background-color: #ff444417;
+}
+
+/* Даты, покрытые ценовыми периодами (режим админ-цен) */
+.day.has-price {
+  background-color: #d6f5dc; /* светло-зелёный */
+  color: #1f6f3a;
+  font-weight: 600;
+  position: relative;
+}
+.day.has-price::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #2ecc71;
+}
+
+/* Выделение всегда поверх зелёной подсветки цен */
+.day.has-price.selected {
+  background: #c6c4fd !important;
+  color: white !important;
+}
+.day.has-price.start-date {
+  background: linear-gradient(to right, #d6f5dc, #d6f5dc, #c6c4fd) !important;
+  color: white !important;
+}
+.day.has-price.end-date {
+  background: linear-gradient(to right, #c6c4fd, #d6f5dc, #d6f5dc) !important;
+  color: white !important;
+}
+.day.has-price.selected::after,
+.day.has-price.start-date::after,
+.day.has-price.end-date::after {
+  background-color: white;
 }
 
 .special-next-day {
