@@ -24,14 +24,6 @@
           <img :src="getPhotoUrl(photo.url)" :alt="room.title" />
         </div>
       </div>
-      <Teleport to="body">
-        <PhotoModal
-          v-model="isModalOpen"
-          :photos="fullPhotos"
-          :initialIndex="currentPhotoIndex"
-          :roomTitle="room?.title || ''"
-        />
-      </Teleport>
       <div class="room_detail_wrapper">
         <div class="room_detail_wrapper_left">
           <div class="room_detail_about">
@@ -193,6 +185,16 @@
         :booking-data="telegramBookingData"
       />
     </Teleport>
+
+    <!-- Photo carousel modal -->
+    <Teleport to="body">
+      <PhotoModal
+        v-model="isModalOpen"
+        :photos="fullPhotos"
+        :initialIndex="currentPhotoIndex"
+        :roomTitle="room?.title || ''"
+      />
+    </Teleport>
   </section>
 </template>
 
@@ -263,6 +265,7 @@ export default {
       }));
     },
     visibleAmenities() {
+      if (!this.room) return [];
       return this.showAllFacilities 
         ? this.room.amenities 
         : this.room.amenities.slice(0, this.defaultVisibleAmenities);
