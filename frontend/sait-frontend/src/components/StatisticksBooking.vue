@@ -1,149 +1,184 @@
 <template>
-    
   <div class="booking-stats">
-    <AdminHeader></AdminHeader>
-    <div class="stats-header">
-      <h2>Статистика бронирований</h2>
-    </div>
 
-    <div class="filters-container">
-      <!-- Период -->
-      <div class="filter-group">
-        <label for="period-type">Тип периода:</label>
-        <select id="period-type" v-model="periodType" @change="onPeriodTypeChange">
-          <option value="custom">Произвольный период</option>
-          <option value="month">По месяцам</option>
-        </select>
+    <div class="stats-container">
+      <AdminHeader />
+      <!-- Фильтры и выбор периода -->
+      <div class="filters-card">
+        <div class="filters-row">
+          <!-- Быстрый выбор периода -->
+          <div class="period-selector">
+            <label class="filter-label">Период:</label>
+            <div class="period-buttons">
+              <button
+                v-for="period in periodOptions"
+                :key="period.value"
+                class="period-btn"
+                :class="{ 'period-btn--active': selectedPeriod === period.value }"
+                @click="selectPeriod(period.value)"
+              >
+                {{ period.label }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Произвольные даты -->
+          <div class="date-inputs" v-if="selectedPeriod === 'custom'">
+            <div class="date-group">
+              <label class="filter-label">С:</label>
+              <input type="date" v-model="customStartDate" @change="fetchStatistics" class="form-input" />
+            </div>
+            <div class="date-group">
+              <label class="filter-label">По:</label>
+              <input type="date" v-model="customEndDate" @change="fetchStatistics" class="form-input" />
+            </div>
+          </div>
+
+          <!-- Выбор комнаты -->
+          <div class="room-filter">
+            <label class="filter-label">Комната:</label>
+            <select v-model="selectedRoomId" @change="fetchStatistics" class="form-input">
+              <option value="all">Все номера</option>
+              <option v-for="room in rooms" :key="room.id" :value="room.id">
+                {{ room.title }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Обновить -->
+          <button class="btn btn--primary" @click="fetchStatistics" :disabled="loading">
+            {{ loading ? 'Загрузка...' : 'Обновить' }}
+          </button>
+        </div>
       </div>
 
-      <!-- Выбор месяца -->
-      <div class="filter-group" v-if="periodType === 'month'">
-        <label for="month">Месяц:</label>
-        <select id="month" v-model="selectedMonth" @change="onMonthChange">
-          <option v-for="month in months" :key="month.value" :value="month.value">
-            {{ month.label }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Произвольный период -->
-      <div class="filter-group" v-if="periodType === 'custom'">
-        <label for="start-date">С:</label>
-        <input type="date" id="start-date" v-model="customStartDate" @change="fetchStatistics" />
-      </div>
-
-      <div class="filter-group" v-if="periodType === 'custom'">
-        <label for="end-date">По:</label>
-        <input type="date" id="end-date" v-model="customEndDate" @change="fetchStatistics" />
-      </div>
-
-      <!-- Выбор комнаты -->
-      <div class="filter-group">
-        <label for="room">Комната:</label>
-        <select id="room" v-model="selectedRoomId" @change="fetchStatistics">
-          <option value="all">Все номера</option>
-          <option v-for="room in rooms" :key="room.id" :value="room.id">
-            {{ room.title }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Кнопка обновления -->
-      <button class="refresh-btn" @click="fetchStatistics" :disabled="loading">
-        {{ loading ? 'Загрузка...' : 'Обновить' }}
-      </button>
-    </div>
-
-    <!-- Основная статистика -->
-    <div class="stats-overview" v-if="statistics">
-      <div class="stats-cards">
+      <!-- Основные карточки статистики -->
+      <div class="stats-cards" v-if="statistics">
         <div class="stat-card">
-          <div class="stat-icon">📊</div>
-          <div class="stat-info">
-            <div class="stat-value">{{ statistics.statistics.total_bookings }}</div>
-            <div class="stat-label">Всего броней</div>
+          <div class="stat-card-icon">📊</div>
+          <div class="stat-card-content">
+            <div class="stat-card-value">{{ statistics.statistics.total_bookings }}</div>
+            <div class="stat-card-label">Всего броней</div>
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">💰</div>
-          <div class="stat-info">
-            <div class="stat-value">{{ formatCurrency(statistics.statistics.total_income) }}</div>
-            <div class="stat-label">Общий доход</div>
+          <div class="stat-card-icon">💰</div>
+          <div class="stat-card-content">
+            <div class="stat-card-value">{{ formatCurrency(statistics.statistics.total_income) }}</div>
+            <div class="stat-card-label">Общий доход</div>
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon">👥</div>
-          <div class="stat-info">
-            <div class="stat-value">{{ statistics.statistics.total_guests }}</div>
-            <div class="stat-label">Всего гостей</div>
+          <div class="stat-card-icon">👥</div>
+          <div class="stat-card-content">
+            <div class="stat-card-value">{{ statistics.statistics.total_guests }}</div>
+            <div class="stat-card-label">Всего гостей</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-icon">📅</div>
+          <div class="stat-card-content">
+            <div class="stat-card-value">{{ statistics.statistics.avg_duration || 0 }}</div>
+            <div class="stat-card-label">Среднее пребывание (ночей)</div>
           </div>
         </div>
       </div>
 
       <!-- Информация о периоде -->
-      <div class="period-info">
-        <p><strong>Период:</strong> {{ formatDate(statistics.period.start_date) }} - {{ formatDate(statistics.period.end_date) }}</p>
-        <p><strong>Фильтр:</strong> {{ statistics.filter.room_title }}</p>
+      <div class="period-info" v-if="statistics">
+        <p><strong>Период:</strong> {{ formatDate(statistics.period.start_date) }} — {{ formatDate(statistics.period.end_date) }}</p>
+        <p v-if="statistics.filter.room_title"><strong>Фильтр:</strong> {{ statistics.filter.room_title }}</p>
       </div>
-    </div>
 
-    <!-- Статистика по комнатам (только когда выбраны все номера) -->
-    <div class="room-stats" v-if="statistics && statistics.room_statistics && statistics.room_statistics.length > 0">
-      <h3>Статистика по номерам</h3>
-      <div class="room-stats-grid">
-        <div v-for="roomStat in statistics.room_statistics" :key="roomStat.room_id" class="room-stat-card">
-          <h4>{{ roomStat.room_title }}</h4>
-          <div class="room-stat-details">
-            <div class="room-stat-item">
-              <span class="label">Броней:</span>
-              <span class="value">{{ roomStat.booking_count }}</span>
-            </div>
-            <div class="room-stat-item">
-              <span class="label">Доход:</span>
-              <span class="value">{{ formatCurrency(roomStat.total_income) }}</span>
-            </div>
-            <div class="room-stat-item">
-              <span class="label">Гостей:</span>
-              <span class="value">{{ roomStat.total_guests }}</span>
+      <!-- Графики по номерам (только когда выбраны ВСЕ номера) -->
+      <div class="charts-grid" v-if="statistics && statistics.room_statistics?.length > 1">
+        <!-- График бронирований по номерам -->
+        <div class="chart-card">
+          <h3 class="chart-title">Бронирования по номерам</h3>
+          <ApexChartComponent
+            :key="'bookings-' + customStartDate + '-' + customEndDate"
+            type="bar"
+            height="300"
+            width="100%"
+            :options="bookingsChartOptions"
+            :series="bookingsChartSeries"
+          />
+        </div>
+
+        <!-- График дохода по номерам -->
+        <div class="chart-card">
+          <h3 class="chart-title">Доход по номерам</h3>
+          <ApexChartComponent
+            :key="'income-' + customStartDate + '-' + customEndDate"
+            type="bar"
+            height="300"
+            width="100%"
+            :options="incomeChartOptions"
+            :series="incomeChartSeries"
+          />
+        </div>
+      </div>
+
+      <!-- Статистика по номерам -->
+      <div class="room-stats" v-if="statistics && statistics.room_statistics?.length">
+        <h3 class="room-stats-title">Статистика по номерам</h3>
+        <div class="room-stats-grid">
+          <div v-for="roomStat in statistics.room_statistics" :key="roomStat.room_id" class="room-stat-card">
+            <h4 class="room-stat-title">{{ roomStat.room_title }}</h4>
+            <div class="room-stat-details">
+              <div class="room-stat-item">
+                <span class="room-stat-label">Броней:</span>
+                <span class="room-stat-value">{{ roomStat.booking_count }}</span>
+              </div>
+              <div class="room-stat-item">
+                <span class="room-stat-label">Доход:</span>
+                <span class="room-stat-value">{{ formatCurrency(roomStat.total_income) }}</span>
+              </div>
+              <div class="room-stat-item">
+                <span class="room-stat-label">Гостей:</span>
+                <span class="room-stat-value">{{ roomStat.total_guests }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Сообщение о загрузке -->
-    <div v-if="loading" class="loading">
-      <div class="spinner"></div>
-      <p>Загрузка статистики...</p>
-    </div>
+      <!-- Загрузка -->
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Загрузка статистики...</p>
+      </div>
 
-    <!-- Сообщение об ошибке -->
-    <div v-if="error" class="error-message">
-      <p>Ошибка: {{ error }}</p>
-      <button @click="fetchStatistics">Попробовать снова</button>
-    </div>
+      <!-- Нет данных -->
+      <div v-if="!loading && !statistics && !error" class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <p>Выберите период для отображения статистики</p>
+      </div>
 
-    <!-- Сообщение когда нет данных -->
-    <div v-if="!loading && !statistics && !error" class="no-data">
-      <p>Выберите параметры для отображения статистики</p>
+      <!-- Ошибка -->
+      <div v-if="error" class="error-state">
+        <p>Ошибка: {{ error }}</p>
+        <button class="btn btn--primary" @click="fetchStatistics">Попробовать снова</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
-
-import AdminHeader  from './AdminHeader.vue';
+import api from '@/api';
+import AdminHeader from './AdminHeader.vue';
 
 export default {
-    
   name: 'BookingStatistics',
+  components: { AdminHeader },
   data() {
     return {
-      periodType: 'month',
-      selectedMonth: '',
+      selectedPeriod: 'week',
       customStartDate: '',
       customEndDate: '',
       selectedRoomId: 'all',
@@ -151,126 +186,148 @@ export default {
       statistics: null,
       loading: false,
       error: null,
-      months: []
+      periodOptions: [
+        { value: 'week', label: 'Неделя' },
+        { value: 'month', label: 'Месяц' },
+        { value: 'quarter', label: 'Квартал' },
+        { value: 'year', label: 'Год' },
+        { value: 'custom', label: 'Произвольно' },
+      ]
     }
-  },
-  components: {
-    AdminHeader
   },
   computed: {
-    currentYear() {
-      return new Date().getFullYear()
-    }
+    // График бронирований по номерам (столбчатая диаграмма)
+    bookingsChartOptions() {
+      const roomStats = this.statistics?.room_statistics || [];
+      const categories = roomStats.map(r => r.room_title);
+      return {
+        chart: { toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#FF5A5F'],
+        plotOptions: { bar: { borderRadius: 6, columnWidth: '60%', horizontal: false } },
+        xaxis: { categories: categories.length ? categories : ['Нет данных'], axisBorder: { show: false } },
+        yaxis: { labels: { formatter: val => Math.round(val) } },
+        grid: { borderColor: '#f0f0f0' },
+        dataLabels: { enabled: false },
+      };
+    },
+    bookingsChartSeries() {
+      const roomStats = this.statistics?.room_statistics || [];
+      return [{
+        name: 'Бронирований',
+        data: roomStats.map(r => r.booking_count)
+      }];
+    },
+    // График дохода по номерам (столбчатая диаграмма)
+    incomeChartOptions() {
+      const roomStats = this.statistics?.room_statistics || [];
+      const categories = roomStats.map(r => r.room_title);
+      return {
+        chart: { toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#00A699'],
+        plotOptions: { bar: { borderRadius: 6, columnWidth: '60%' } },
+        xaxis: { categories: categories.length ? categories : ['Нет данных'], axisBorder: { show: false } },
+        yaxis: { labels: { formatter: val => `${Math.round(val / 1000)}к ₽` } },
+        grid: { borderColor: '#f0f0f0' },
+        dataLabels: { enabled: false },
+        tooltip: { y: { formatter: val => `${val.toLocaleString('ru-RU')} ₽` } },
+      };
+    },
+    incomeChartSeries() {
+      const roomStats = this.statistics?.room_statistics || [];
+      return [{
+        name: 'Доход',
+        data: roomStats.map(r => r.total_income)
+      }];
+    },
   },
   mounted() {
-    this.generateMonths()
-    this.setDefaultDates()
-    this.fetchRooms()
-    this.fetchStatistics()
+    this.setDefaultDates();
+    this.fetchRooms();
+    this.fetchStatistics();
   },
   methods: {
-    generateMonths() {
-      const months = []
-      const currentDate = new Date()
-      const currentYear = currentDate.getFullYear()
-      
-      // Генерируем месяцы за последние 2 года
-      for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-        for (let month = 1; month <= 12; month++) {
-          const date = new Date(year, month - 1, 1)
-          months.push({
-            value: `${year}-${month.toString().padStart(2, '0')}`,
-            label: date.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })
-          })
-        }
-      }
-      
-      this.months = months
+    selectPeriod(period) {
+      this.selectedPeriod = period;
+      this.setDefaultDates();
+      this.fetchStatistics();
     },
-    
     setDefaultDates() {
-      // Устанавливаем текущий месяц по умолчанию
-      const now = new Date()
-      this.selectedMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`
-      this.onMonthChange()
-      
-      // Устанавливаем произвольный период (последние 30 дней)
-      this.customEndDate = this.formatDateForInput(now)
-      const thirtyDaysAgo = new Date(now)
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      this.customStartDate = this.formatDateForInput(thirtyDaysAgo)
-    },
-    
-    onPeriodTypeChange() {
-      if (this.periodType === 'month') {
-        this.onMonthChange()
-      } else {
-        this.fetchStatistics()
+      const now = new Date();
+      let startDate;
+
+      switch (this.selectedPeriod) {
+        case 'week':
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case 'quarter':
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 3);
+          break;
+        case 'year':
+          startDate = new Date(now);
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          break;
+        default:
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 30);
       }
+
+      this.customStartDate = this.formatDateForInput(startDate);
+      this.customEndDate = this.formatDateForInput(now);
     },
-    
-    onMonthChange() {
-      if (!this.selectedMonth) return
-      
-      const [year, month] = this.selectedMonth.split('-')
-      const startDate = new Date(year, month - 1, 1)
-      const endDate = new Date(year, month, 0) // Последний день месяца
-      
-      this.customStartDate = this.formatDateForInput(startDate)
-      this.customEndDate = this.formatDateForInput(endDate)
-      this.fetchStatistics()
-    },
-    
     async fetchRooms() {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/rooms/admin/')
-        this.rooms = response.data
+        const response = await api.get('/rooms/admin/');
+        this.rooms = response.data;
       } catch (error) {
-        console.error('Ошибка загрузки списка комнат:', error)
+        console.error('Ошибка загрузки списка комнат:', error);
       }
     },
-    
     async fetchStatistics() {
-      if (!this.customStartDate || !this.customEndDate) return
-      
-      this.loading = true
-      this.error = null
-      
+      if (!this.customStartDate || !this.customEndDate) return;
+
+      this.loading = true;
+      this.error = null;
+
       try {
         const params = {
           start_date: this.customStartDate,
           end_date: this.customEndDate
-        }
-        
+        };
+
         if (this.selectedRoomId !== 'all') {
-          params.room_id = parseInt(this.selectedRoomId)
+          params.room_id = parseInt(this.selectedRoomId);
         }
-        
-        const response = await axios.get('http://127.0.0.1:8000/bookings/booking-stats', { params })
-        this.statistics = response.data
+
+        const response = await api.get('/bookings/booking-stats', { params });
+        this.statistics = response.data;
       } catch (error) {
-        this.error = error.response?.data?.detail || 'Ошибка загрузки статистики'
-        console.error('Ошибка загрузки статистики:', error)
+        this.error = error.response?.data?.detail || 'Ошибка загрузки статистики';
+        console.error('Ошибка загрузки статистики:', error);
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
-    
     formatDate(dateString) {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('ru-RU')
+      if (!dateString) return '—';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('ru-RU');
     },
-    
     formatDateForInput(date) {
-      return date.toISOString().split('T')[0]
+      return date.toISOString().split('T')[0];
     },
-    
     formatCurrency(amount) {
+      if (!amount && amount !== 0) return '0 ₽';
       return new Intl.NumberFormat('ru-RU', {
         style: 'currency',
         currency: 'RUB',
         minimumFractionDigits: 0
-      }).format(amount)
+      }).format(amount);
     }
   }
 }
@@ -278,220 +335,331 @@ export default {
 
 <style scoped>
 .booking-stats {
+  min-height: 100vh;
+  background: var(--color-gray-50);
+}
+
+.stats-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: var(--spacing-xl);
 }
 
-.stats-header {
-  text-align: center;
-  margin-bottom: 30px;
+/* ======================================
+   FILTERS CARD
+   ====================================== */
+.filters-card {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--spacing-xl);
 }
 
-.stats-header h2 {
-  color: #333;
-  margin: 0;
-}
-
-.filters-container {
+.filters-row {
   display: flex;
-  gap: 20px;
   flex-wrap: wrap;
-  align-items: end;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  gap: var(--spacing-lg);
+  align-items: flex-end;
 }
 
-.filter-group {
+.period-selector {
+  flex: 1;
+  min-width: 300px;
+}
+
+.filter-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-gray-700);
+  margin-bottom: var(--spacing-xs);
+}
+
+.period-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.period-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-gray-300);
+  background: var(--color-white);
+  color: var(--color-gray-700);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.period-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.period-btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+.date-inputs {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.date-group {
   display: flex;
   flex-direction: column;
-  min-width: 150px;
+  gap: var(--spacing-xs);
 }
 
-.filter-group label {
-  font-weight: 600;
-  margin-bottom: 5px;
-  color: #555;
+.room-filter {
+  min-width: 200px;
 }
 
-.filter-group select,
-.filter-group input {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.refresh-btn {
-  padding: 8px 16px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  height: fit-content;
-}
-
-.refresh-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.stats-overview {
-  margin-bottom: 30px;
-}
-
+/* ======================================
+   STATS CARDS
+   ====================================== */
 .stats-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
 }
 
-.stat-icon {
-  font-size: 2em;
-  margin-right: 15px;
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
-.stat-info {
+.stat-card-icon {
+  font-size: 2.5rem;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-lg);
+}
+
+.stat-card-content {
   flex: 1;
 }
 
-.stat-value {
-  font-size: 1.8em;
-  font-weight: bold;
-  color: #333;
+.stat-card-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-gray-900);
+  line-height: 1.2;
 }
 
-.stat-label {
-  color: #666;
-  font-size: 0.9em;
+.stat-card-label {
+  font-size: var(--text-sm);
+  color: var(--color-gray-500);
+  margin-top: var(--spacing-xs);
 }
 
+/* ======================================
+   PERIOD INFO
+   ====================================== */
 .period-info {
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: var(--color-white);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--spacing-xl);
+  font-size: var(--text-sm);
+  color: var(--color-gray-600);
 }
 
 .period-info p {
-  margin: 5px 0;
+  margin: var(--spacing-xs) 0;
 }
 
+/* ======================================
+   CHARTS
+   ====================================== */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+@media (max-width: 900px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.chart-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-gray-900);
+}
+
+.chart-empty {
+  text-align: center;
+  padding: var(--spacing-3xl) var(--spacing-lg);
+  color: var(--color-gray-500);
+  font-size: var(--text-base);
+  background: var(--color-gray-50);
+  border-radius: var(--radius-md);
+}
+
+/* ======================================
+   ROOM STATS
+   ====================================== */
 .room-stats {
-  margin-top: 30px;
+  margin-bottom: var(--spacing-xl);
 }
 
-.room-stats h3 {
-  color: #333;
-  margin-bottom: 20px;
+.room-stats-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-gray-900);
 }
 
 .room-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
 }
 
 .room-stat-card {
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
 }
 
-.room-stat-card h4 {
-  margin: 0 0 15px 0;
-  color: #333;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
+.room-stat-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-gray-200);
+  color: var(--color-gray-900);
 }
 
 .room-stat-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  padding: var(--spacing-xs) 0;
 }
 
-.room-stat-item .label {
-  color: #666;
+.room-stat-label {
+  color: var(--color-gray-500);
+  font-size: var(--text-sm);
 }
 
-.room-stat-item .value {
+.room-stat-value {
   font-weight: 600;
-  color: #333;
+  color: var(--color-gray-900);
+  font-size: var(--text-sm);
 }
 
-.loading {
+/* ======================================
+   LOADING / EMPTY / ERROR
+   ====================================== */
+.loading-state,
+.empty-state,
+.error-state {
   text-align: center;
-  padding: 40px;
+  padding: var(--spacing-3xl);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.loading-state p,
+.empty-state p,
+.error-state p {
+  color: var(--color-gray-500);
+  margin-top: var(--spacing-md);
 }
 
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #007bff;
-  border-radius: 50%;
   width: 40px;
   height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 20px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
-.error-message {
-  text-align: center;
-  padding: 40px;
-  background: #ffe6e6;
-  border-radius: 8px;
-  color: #d63031;
+.empty-state svg {
+  color: var(--color-gray-300);
+  margin-bottom: var(--spacing-md);
 }
 
-.error-message button {
-  margin-top: 10px;
-  padding: 8px 16px;
-  background: #d63031;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.error-state {
+  background: var(--color-error-soft);
 }
 
-.no-data {
-  text-align: center;
-  padding: 40px;
-  color: #666;
+.error-state p {
+  color: var(--color-error);
+  font-weight: 500;
 }
 
+.error-state .btn {
+  margin-top: var(--spacing-md);
+}
+
+/* ======================================
+   RESPONSIVE
+   ====================================== */
 @media (max-width: 768px) {
-  .filters-container {
+  .stats-container {
+    padding: var(--spacing-md);
+  }
+
+  .filters-row {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
+  .period-selector {
+    min-width: auto;
+  }
+
+  .date-inputs {
+    flex-direction: column;
+  }
+
   .stats-cards {
     grid-template-columns: 1fr;
   }
-  
+
   .room-stats-grid {
     grid-template-columns: 1fr;
   }

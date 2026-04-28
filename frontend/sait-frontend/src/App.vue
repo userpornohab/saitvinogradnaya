@@ -154,7 +154,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '@/api';
 
 export default {
   data() {
@@ -202,11 +202,7 @@ export default {
 
       if (token) {
         try {
-          const response = await axios.get('http://localhost:8000/users/me/', { // Добавлен слеш в конце
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
+          const response = await api.get('/users/me/')
           this.isAdmin = response.data.is_superuser;
         } catch (error) {
           this.showNotification('Сессия истекла, войдите снова', 'error');

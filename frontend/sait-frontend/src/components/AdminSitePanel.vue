@@ -195,7 +195,7 @@
 
 <script>
 import { ref, onMounted, reactive } from 'vue';
-import axios from 'axios';
+import api, { API_BASE_URL } from '@/api';
 
 import AdminHeader  from './AdminHeader.vue';
 
@@ -231,13 +231,18 @@ export default {
     const editingTestimonial = ref(null);
     const editingFaq = ref(null);
 
-    const API_BASE = 'http://localhost:8000/site';
+    const API_BASE = '/site';
+
+    // Заголовки авторизации для админ-запросов (эндпоинты требуют check_superuser)
+    const authHeader = () => ({ Authorization: `Bearer ${localStorage.getItem('access_token')}` });
+    const authHeaders = () => ({ headers: authHeader() });
+    const authMultipart = () => ({ headers: { ...authHeader(), 'Content-Type': 'multipart/form-data' } });
     
     // Загрузка данных
     const loadData = async () => {
         try {
             // Получаем все данные одним запросом
-            const response = await axios.get(`${API_BASE}/`);
+            const response = await api.get(`${API_BASE}/`);
             const data = response.data;
             
             // Сохраняем основную информацию
@@ -259,7 +264,7 @@ export default {
     // Получение полного URL
     const getFullUrl = (url) => {
       if (!url) return ''; // Защита от undefined/null
-      return url.startsWith('http') ? url : `http://localhost:8000${url}`;
+      return url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     };
 
     // Генерация URL для предпросмотра
@@ -300,10 +305,10 @@ export default {
         
         formData.append('main_description', editableSiteInfo.main_description);
         
-        const response = await axios.put(
+        const response = await api.put(
           `${API_BASE}/`, 
           formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
+          authMultipart()
         );
         
         siteInfo.value = response.data;
@@ -330,10 +335,10 @@ export default {
           formData.append('files', file);
         });
         
-        const response = await axios.post(
+        const response = await api.post(
           `${API_BASE}/courtyard-photos`, 
           formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
+          authMultipart()
         );
         
         // Обработка ответа в новом формате
@@ -369,7 +374,7 @@ export default {
       if (!confirm('Удалить эту фотографию?')) return;
       
       try {
-        await axios.delete(`${API_BASE}/courtyard-photos/${id}`);
+        await api.delete(`${API_BASE}/courtyard-photos/${id}`, authHeaders());
         courtyardPhotos.value = courtyardPhotos.value.filter(p => p.id !== id);
       } catch (error) {
         console.error('Ошибка удаления фото:', error);
@@ -410,18 +415,18 @@ export default {
         let response;
         
         if (editingTestimonial.value) {
-          response = await axios.put(
+          response = await api.put(
             `${API_BASE}/testimonials/${editingTestimonial.value}`,
             formData,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
+            authMultipart()
           );
           const index = testimonials.value.findIndex(t => t.id === editingTestimonial.value);
           testimonials.value[index] = response.data;
         } else {
-          response = await axios.post(
+          response = await api.post(
             `${API_BASE}/testimonials`,
             formData,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
+            authMultipart()
           );
           testimonials.value.push(response.data);
         }
@@ -439,7 +444,7 @@ export default {
       if (!confirm('Удалить этот отзыв?')) return;
       
       try {
-        await axios.delete(`${API_BASE}/testimonials/${id}`);
+        await api.delete(`${API_BASE}/testimonials/${id}`, authHeaders());
         testimonials.value = testimonials.value.filter(t => t.id !== id);
       } catch (error) {
         console.error('Ошибка удаления отзыва:', error);
@@ -474,14 +479,15 @@ export default {
         };
         
         if (editingFaq.value) {
-          response = await axios.put(
+          response = await api.put(
             `${API_BASE}/faqs/${editingFaq.value}`,
-            faqData
+            faqData,
+            authHeaders()
           );
           const index = faqs.value.findIndex(f => f.id === editingFaq.value);
           faqs.value[index] = response.data;
         } else {
-          response = await axios.post(`${API_BASE}/faqs`, faqData);
+          response = await api.post(`${API_BASE}/faqs`, faqData, authHeaders());
           faqs.value.push(response.data);
         }
         
@@ -495,7 +501,7 @@ export default {
       if (!confirm('Удалить этот вопрос?')) return;
       
       try {
-        await axios.delete(`${API_BASE}/faqs/${id}`);
+        await api.delete(`${API_BASE}/faqs/${id}`, authHeaders());
         faqs.value = faqs.value.filter(f => f.id !== id);
       } catch (error) {
         console.error('Ошибка удаления FAQ:', error);

@@ -239,7 +239,7 @@
 <script>
 import SearchForm from './SearchForm.vue';
 import RoomComponent from './RoomComponent.vue';
-import axios from 'axios';
+import api, { API_BASE_URL } from '@/api';
 import defaultImage from '@/assets/rybache1.jpg';
 
 // Иконки преимуществ
@@ -282,7 +282,7 @@ export default {
       if (this.siteInfo?.main_photo) {
         backgroundImage = this.siteInfo.main_photo.startsWith('http')
           ? this.siteInfo.main_photo
-          : `http://localhost:8000${this.siteInfo.main_photo}`;
+          : `${API_BASE_URL}${this.siteInfo.main_photo}`;
       }
       return {
         backgroundImage: `url(${backgroundImage})`,
@@ -296,7 +296,7 @@ export default {
     },
     aboutImageSrc() {
       return this.siteInfo?.courtyard_photos?.[0]?.url
-        ? `http://localhost:8000${this.siteInfo.courtyard_photos[0].url}`
+        ? `${API_BASE_URL}${this.siteInfo.courtyard_photos[0].url}`
         : defaultImage;
     },
     advantages() {
@@ -341,7 +341,7 @@ export default {
     },
     getTestimonialAvatarUrl(url) {
       if (!url) return '';
-      return url.startsWith('http') ? url : `http://localhost:8000${url}`;
+      return url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     },
     scrollTestimonials(direction) {
       const track = this.$refs.testimonialsTrack;
@@ -352,7 +352,7 @@ export default {
     },
     async fetchSiteInfo() {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/site/');
+        const response = await api.get('/site/');
         this.siteInfo = response.data;
       } catch (error) {
         console.error('Ошибка загрузки информации о сайте:', error);
@@ -361,7 +361,7 @@ export default {
     },
     async fetchAllRooms() {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/rooms/');
+        const response = await api.get('/rooms/');
         this.rooms = response.data;
       } catch (error) {
         console.error('Ошибка загрузки комнат:', error);
@@ -378,8 +378,8 @@ export default {
         this.isLoading = true;
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        const response = await axios.post(
-          'http://127.0.0.1:8000/rooms/filter/',
+        const response = await api.post(
+          '/rooms/filter/',
           searchData
         );
 

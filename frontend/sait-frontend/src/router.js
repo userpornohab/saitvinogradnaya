@@ -8,7 +8,7 @@ import AdminSitePanel from '@/components/AdminSitePanel.vue';
 import StatisticksBooking from '@/components/StatisticksBooking.vue'
 //import AdminPanel from '@/components/Admin/AdminPanel.vue';
 
-import axios from 'axios';
+import api from '@/api';
 
 
 const routes = [
@@ -38,11 +38,7 @@ const routes = [
         return;
       }
       try {
-        const response = await axios.get('http://localhost:8000/users/me/', { // Добавлен слеш в конце
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
+        const response = await api.get('/users/me/')
         if (response.data.is_superuser) {
           next();
         } else {
@@ -64,11 +60,7 @@ const routes = [
         return;
       }
       try {
-        const response = await axios.get('http://localhost:8000/users/me/', { // Добавлен слеш в конце
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
+        const response = await api.get('/users/me/')
         if (response.data.is_superuser) {
           next();
         } else {
@@ -90,11 +82,7 @@ const routes = [
         return;
       }
       try {
-        const response = await axios.get('http://localhost:8000/users/me/', { // Добавлен слеш в конце
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
+        const response = await api.get('/users/me/')
         if (response.data.is_superuser) {
           next();
         } else {

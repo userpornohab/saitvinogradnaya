@@ -193,7 +193,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api, { API_BASE_URL } from '@/api';
 import DateRangePicker from './DateRangePicker.vue';
 import BookingForm from './BookingForm.vue';
 import PhotoModal from './PhotoModal.vue';
@@ -405,7 +405,7 @@ export default {
     async fetchRoomDetail() {
       const roomId = this.$route.params.id;
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/rooms/${roomId}/`);
+        const response = await api.get(`/rooms/${roomId}/`);
         this.room = response.data;
 
       } catch (error) {
@@ -414,7 +414,7 @@ export default {
     },
     async fetchFAQ() {
   try {
-    const response = await axios.get(`http://127.0.0.1:8000/site/faqs/`);
+    const response = await api.get('/site/faqs/');
     // Преобразуем поля API в формат аккордеона
     this.accordionItems = response.data.map(item => ({
       title: item.question,
@@ -429,9 +429,7 @@ export default {
     async loadBookings() {
       try {
         const roomId = this.$route.params.id;
-        const response = await axios.get(`http://localhost:8000/bookings/rooms/${roomId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-        });
+        const response = await api.get(`/bookings/rooms/${roomId}`);
         
         // Обеспечиваем реактивность
         this.booking = response.data
@@ -475,11 +473,11 @@ export default {
     },
 
     getIconUrl(icon) {
-      return `http://127.0.0.1:8000/${icon}`;
+      return `${API_BASE_URL}/${icon}`;
     },
 
     getPhotoUrl(url) {
-      return `http://127.0.0.1:8000${url}`;
+      return `${API_BASE_URL}${url}`;
     },
 
     handleBookingChange(payload) {

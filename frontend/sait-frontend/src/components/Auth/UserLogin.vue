@@ -17,7 +17,7 @@
   </template>
   
   <script>
-  import axios from 'axios';
+  import api from '@/api';
   
   export default {
     data() {
@@ -33,8 +33,8 @@
           formData.append('username', this.email);
           formData.append('password', this.password);
 
-          const response = await axios.post(
-            'http://127.0.0.1:8000/token/',
+          const response = await api.post(
+            '/token/',
             formData,
             {
               headers: {

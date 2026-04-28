@@ -1,6 +1,14 @@
 <template>
   <div class="room_number" style="width: 100%;">
-    <h3 class="h_room_number">Номера</h3>
+    <!-- Декоративная фоновая иллюстрация «Пляжный дом» -->
+    <img
+      src="@/assets/icons/plajniydom.svg"
+      alt=""
+      aria-hidden="true"
+      class="rooms-bg-illustration"
+      :class="{ 'is-loading': isLoading }"
+    />
+
     <div v-if="isLoading" class="loading-indicator">
       <div class="spinner_grup">
         <div class="spinner"></div>
@@ -187,6 +195,7 @@
 </template>
 
 <script>
+import { API_BASE_URL } from '@/api';
 import PhotoModal from './PhotoModal.vue';
 
 export default {
@@ -234,10 +243,10 @@ export default {
       this.isDvorModalOpen = true;
     },
     getIconUrl(icon) {
-      return `http://127.0.0.1:8000/${icon}`;
+      return `${API_BASE_URL}/${icon}`;
     },
     getPhotoUrl(url) {
-      return `http://127.0.0.1:8000${url}`;
+      return `${API_BASE_URL}${url}`;
     },
     goToRoomDetail(id) {
       const queryParams = {};
@@ -318,28 +327,92 @@ export default {
 </script>
 
 <style scoped>
-/* Ограничиваем количество комнат в строке */
+/* ================================================================
+   Декоративная фоновая иллюстрация «Пляжный дом»
+   ================================================================ */
+.room_number {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.rooms-bg-illustration {
+  position: absolute;
+  right: -6%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(520px, 45%, 620px);
+  max-width: 620px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  opacity: 0.08;
+  filter: saturate(0.85);
+  animation: rooms-bg-float 9s ease-in-out infinite;
+  transition: opacity 600ms ease;
+}
+
+.room_serch,
+.loading-indicator {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes rooms-bg-float {
+  0%, 100% { transform: translateY(-50%) translateX(0) rotate(0deg); }
+  50%      { transform: translateY(calc(-50% - 10px)) translateX(-6px) rotate(-1deg); }
+}
+
+.rooms-bg-illustration.is-loading {
+  opacity: 0.16;
+  animation: rooms-bg-loading 2.2s ease-in-out infinite;
+}
+
+@keyframes rooms-bg-loading {
+  0%   { transform: translateY(-50%)           translateX(0)  rotate(0deg)   scale(1);     }
+  25%  { transform: translateY(calc(-50% - 6px))  translateX(-4px) rotate(-1.5deg) scale(1.015); }
+  50%  { transform: translateY(calc(-50% - 12px)) translateX(0)    rotate(0deg)    scale(1.03);  }
+  75%  { transform: translateY(calc(-50% - 6px))  translateX(4px)  rotate(1.5deg)  scale(1.015); }
+  100% { transform: translateY(-50%)           translateX(0)  rotate(0deg)   scale(1);     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rooms-bg-illustration,
+  .rooms-bg-illustration.is-loading {
+    animation: none;
+  }
+}
+
+/* ================================================================
+   Сетка комнат
+   ================================================================ */
 .flex {
   gap: clamp(6px, 2vw, 30px);
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  /* flex-wrap: wrap;
-  justify-content: space-around; */
 }
-@media (max-width: 930px)  {
-  .flex {
-    grid-template-columns: 1fr 1fr ;
 
+@media (max-width: 930px) {
+  .flex { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  .rooms-bg-illustration {
+    width: 70%;
+    right: -15%;
+    opacity: 0.06;
   }
 }
-@media (max-width: 460px)  {
-  .flex {
-    grid-template-columns: 1fr ;
 
-  }
+@media (max-width: 480px) {
+  .rooms-bg-illustration { display: none; }
 }
 
+@media (max-width: 460px) {
+  .flex { grid-template-columns: 1fr; }
+}
 
 /* Новые стили для слайдера */
 .slider-container {
@@ -435,7 +508,7 @@ export default {
 }
 
 .icon-pad {
-  width: clamp(20px, 2vw, 30px);
+  width: 40px;
 
   filter: invert(100%);
   padding: 0 10px;
@@ -449,7 +522,7 @@ export default {
 
 .room-header h4 {
   font-size: 1.2rem;
-  margin: 0;
+  margin-bottom: 6px;
 }
 
 
@@ -470,9 +543,7 @@ export default {
 
 .price-range {
   display: flex;
-  font-size: 1.2rem;
   margin: 0;
-  font-weight: 600;
 }
 
 
