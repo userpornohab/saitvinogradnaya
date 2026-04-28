@@ -5,7 +5,7 @@
       <button v-if="!isNew" @click="$emit('cancel')" class="btn-close">✕</button>
     </div>
 
-    <form @submit.prevent="$emit('submit', { ...formData })" class="room-form">
+    <form @submit.prevent="handleSubmit" class="room-form">
       <div class="form-grid">
         <div class="form-group">
           <label>Название</label>
@@ -233,6 +233,10 @@ export default {
     }
   },
   methods: {
+    handleSubmit() {
+      console.log('RoomEditor handleSubmit - formData:', JSON.stringify(this.formData));
+      this.$emit('submit', { ...this.formData });
+    },
     isSelected(type, id) {
       if (type === 'amenities') return this.selectedAmenities.includes(id);
       if (type === 'bed_options') return this.selectedBeds.includes(id);
