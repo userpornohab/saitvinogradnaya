@@ -176,6 +176,7 @@
 import { API_BASE_URL } from '@/api';
 export default {
   name: 'RoomEditor',
+  emits: ['submit', 'cancel', 'toggle-amenity-form', 'toggle-bed-form', 'toggle-amenity', 'toggle-bed', 'add-amenity', 'add-bed', 'upload-photos', 'update-form'],
   props: {
     room: { type: Object, default: null },
     isNew: { type: Boolean, default: false },
@@ -217,6 +218,12 @@ export default {
             number_of_rooms: room.number_of_rooms || 1
           }
         }
+      }
+    },
+    formData: {
+      deep: true,
+      handler(formData) {
+        this.$emit('update-form', { ...formData })
       }
     }
   },

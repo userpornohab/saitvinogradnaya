@@ -42,6 +42,7 @@
       @toggle-bed="toggleBed"
       @add-amenity="addAmenity"
       @add-bed="addBed"
+      @update-form="updateRoomForm"
       @delete-amenity="deleteAmenity"
       @delete-bed="deleteBed"
       @set-main-photo="setMainPhoto"
@@ -159,6 +160,9 @@ export default {
       this.selectedFiles = [];
       this.showAmenityForm = false;
       this.showBedForm = false;
+    },
+    updateRoomForm(formData) {
+      Object.assign(this.newRoom, formData);
     },
 
     // === Цены ===
