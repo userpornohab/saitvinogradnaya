@@ -180,8 +180,7 @@
       </div>
     </div>
 
-    <Teleport to="body">
-      <PhotoModal
+    <PhotoModal
 
         tabindex="0"
 
@@ -191,7 +190,6 @@
         :initialIndex="dvorModalInitialIndex"
         roomTitle="Двор"
       />
-    </Teleport>
   </div>
 </template>
 
@@ -333,8 +331,6 @@ export default {
    ================================================================ */
 .room_number {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
 }
 
 .rooms-bg-illustration {

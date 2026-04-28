@@ -178,23 +178,19 @@
   </div>
 
     <!-- Telegram booking confirmation modal -->
-    <Teleport to="body">
-      <TelegramBookingModal
-        v-if="telegramModalOpen"
-        v-model="telegramModalOpen"
-        :booking-data="telegramBookingData"
-      />
-    </Teleport>
+    <TelegramBookingModal
+      v-if="telegramModalOpen"
+      v-model="telegramModalOpen"
+      :booking-data="telegramBookingData"
+    />
 
     <!-- Photo carousel modal -->
-    <Teleport to="body">
-      <PhotoModal
-        v-model="isModalOpen"
-        :photos="fullPhotos"
-        :initialIndex="currentPhotoIndex"
-        :roomTitle="room?.title || ''"
-      />
-    </Teleport>
+    <PhotoModal
+      v-model="isModalOpen"
+      :photos="fullPhotos"
+      :initialIndex="currentPhotoIndex"
+      :roomTitle="room?.title || ''"
+    />
   </section>
 </template>
 
