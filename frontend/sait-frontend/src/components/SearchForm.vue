@@ -487,7 +487,7 @@ export default {
     justify-content: center;
     gap: 6px;
     border: none;
-    background: linear-gradient(135deg, #e61e4d 0%, #d70466 50%, #bd1e59 100%);
+    background: linear-gradient(135deg, #4c4cf7 0%, #4c4cf7 50%, #5757da 100%);
     color: #fff;
     cursor: pointer;
     font-weight: 600;
@@ -496,7 +496,7 @@ export default {
     min-width: 40px;
     padding: 0 12px;
     border-radius: 9999px;
-    box-shadow: 0 2px 6px rgba(230, 30, 77, 0.3);
+    box-shadow: 0 2px 6px rgb(66, 39, 218);
     transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, min-width 0.25s ease;
     flex-shrink: 0;
     margin: 0 2px;
@@ -504,7 +504,7 @@ export default {
 
   .find-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(230, 30, 77, 0.45);
+    box-shadow: 0 4px 14px rgb(66, 39, 218);
   }
 
   .find-btn:active:not(:disabled) {

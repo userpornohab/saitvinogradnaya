@@ -151,7 +151,7 @@
 
           
         </div>
-        <div class="room_detail_wrapper_right">
+        <div ref="bookingFormAnchor" class="room_detail_wrapper_right">
           <BookingForm
             :start-date="startDate"
             :end-date="endDate"
@@ -242,8 +242,13 @@ export default {
     startDate() {
       if (!this.initialLoad) this.updateUrlQuery();
     },
-    endDate() {
+    endDate(newVal) {
       if (!this.initialLoad) this.updateUrlQuery();
+      if (newVal && this.isMobile) {
+        this.$nextTick(() => {
+          this.$refs.bookingFormAnchor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
     },
     guestsCount() {
       if (!this.initialLoad) this.updateUrlQuery();
@@ -996,6 +1001,7 @@ input[type="date"] {
 }
 
 .accordion-container {
+  margin-bottom: 50px;
   padding: 25px 0;
   border-top: 1px solid #e0e0e0;
   border-bottom: 1px solid #e0e0e0;

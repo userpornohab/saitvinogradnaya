@@ -65,15 +65,18 @@
     <!-- 5. FAQ Block -->
     <section id="faq" class="section">
       <div class="container">
+        <div class="faq-header">
+          <span class="eyebrow">Вопрос — ответ</span>
+          <h2 class="section-title faq-title">Часто задаваемые вопросы</h2>
+          <p class="faq-lead">Собрали самое важное о заселении, питании и досуге. Не нашли ответ — напишите нам, ответим лично.</p>
+        </div>
+          
         <div class="faq-layout">
           <aside class="faq-illustration" aria-hidden="true">
             <img :src="faqImage" alt="" class="faq-illustration-img" />
           </aside>
 
           <div class="faq-content">
-            <span class="eyebrow">Вопрос — ответ</span>
-            <h2 class="section-title faq-title">Часто задаваемые вопросы</h2>
-            <p class="faq-lead">Собрали самое важное о заселении, питании и досуге. Не нашли ответ — напишите нам, ответим лично.</p>
 
             <div class="faq-list">
               <div
@@ -122,9 +125,6 @@
               Мы организуем трансфер из аэропорта Симферополя или ж/д вокзала.
               Свяжитесь с нами заранее для заказа.
             </p>
-            <a href="tel:+79788028912" class="btn btn--primary btn--rounded btn--sm">
-              Заказать трансфер
-            </a>
           </div>
 
           <!-- Общественный транспорт -->
@@ -312,10 +312,10 @@ export default {
     landmarks() {
       return [
         { title: 'Море', distance: '10 мин пешком', desc: 'Чистый галечный пляж с живописными видами на горы', image: landmarkSea },
-        { title: 'Водопад Джур-Джур', distance: '30 мин на машине', desc: 'Самый полноводный водопад Крыма среди вековых буков', image: landmarkJurJur },
-        { title: 'Алушта', distance: '20 мин на машине', desc: 'Город с набережными, ресторанами и аквапарком', image: landmarkAlushta },
-        { title: 'Гора Демерджи', distance: '25 мин на машине', desc: 'Долина Привидений и знаменитые каменные изваяния', image: landmarkDemerdzhi },
-        { title: 'Парк Айвазовское', distance: '15 мин на машине', desc: 'Ландшафтный парк с реликтовыми растениями', image: landmarkAivaz },
+        { title: 'Водопад Джур-Джур', distance: '20 мин на машине', desc: 'Самый полноводный водопад Крыма среди вековых буков', image: landmarkJurJur },
+        { title: 'Алушта', distance: '30 мин на машине', desc: 'Город с набережными, ресторанами и аквапарком', image: landmarkAlushta },
+        { title: 'Гора Демерджи', distance: '35 мин на машине', desc: 'Долина Привидений и знаменитые каменные изваяния', image: landmarkDemerdzhi },
+        { title: 'Парк Айвазовское', distance: '50 мин на машине', desc: 'Ландшафтный парк с реликтовыми растениями', image: landmarkAivaz },
         { title: 'Судак и Новый Свет', distance: '40 мин на машине', desc: 'Генуэзская крепость и можжевеловые рощи', image: landmarkSudak },
       ];
     },
@@ -408,7 +408,7 @@ export default {
    ====================================== */
 .hero {
   position: relative;
-  min-height: 70vh;
+  min-height: 60vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -614,13 +614,13 @@ export default {
 }
 
 .faq-title {
-  text-align: left;
   margin-bottom: var(--spacing-sm);
 }
 
 .faq-lead {
   margin: 0 0 var(--spacing-lg);
   color: var(--color-gray-600);
+
   font-size: var(--text-base);
   line-height: var(--leading-relaxed);
   max-width: 52ch;
@@ -956,6 +956,11 @@ export default {
    поэтому overlay показываем всегда (статично).
    Сохраняем вариативность: большой → два маленьких → горизонтальный → два маленьких */
 @media (max-width: 600px) {
+
+  
+.about-advantages {
+  padding-top: 0;
+}
   .landmarks-grid {
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: 240px 320px 240px 320px;
@@ -1081,6 +1086,18 @@ export default {
   font-style: italic;
   margin: 0;
 }
+.faq-header{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+
+}
+.faq-header {
+    text-align: center;
+
+}
+
 
 .slider-btn {
   position: absolute;

@@ -21,20 +21,18 @@
         </div>
 
         <div class="nav-links">
-          <template v-if="!isAuthenticated">
-            <router-link to="/login" class="nav-link" @click="closeMobileMenu">Вход</router-link>
-          </template>
-          <template v-else>
-            <router-link
-              v-if="isAdmin"
-              to="/admin/rooms"
-              class="nav-link admin-link"
-              @click="closeMobileMenu"
-            >
-              Админ-панель
-            </router-link>
-            <button @click="handleLogout" class="nav-button">Выход</button>
-          </template>
+          <a href="tel:+79788028912" class="nav-phone" @click="closeMobileMenu">
+            <img src="@/assets/icons/phone.svg" alt="Позвонить" class="nav-phone-icon">
+          </a>
+          <router-link
+            v-if="isAuthenticated && isAdmin"
+            to="/admin/rooms"
+            class="nav-link admin-link"
+            @click="closeMobileMenu"
+          >
+            Админ-панель
+          </router-link>
+          <button v-if="isAuthenticated" @click="handleLogout" class="nav-button">Выход</button>
         </div>
 
         <!-- Кнопка бургер -->
@@ -63,7 +61,9 @@
               @click.prevent="scrollToSection(item.id)"
             >{{ item.label }}</a>
           </template>
-          <router-link v-if="!isAuthenticated" to="/login" class="mobile-menu-link" @click="closeMobileMenu">Вход</router-link>
+          <a href="tel:+79788028912" class="mobile-menu-link" @click="closeMobileMenu">
+            <img src="@/assets/icons/phone.svg" alt="Позвонить" class="mobile-phone-icon"> +79788028912
+          </a>
           <router-link v-if="isAuthenticated && isAdmin" to="/admin/rooms" class="mobile-menu-link mobile-menu-link--primary" @click="closeMobileMenu">Админ-панель</router-link>
           <button v-if="isAuthenticated" @click="handleLogout(); closeMobileMenu()" class="mobile-menu-link mobile-menu-link--btn">Выход</button>
         </div>
@@ -183,7 +183,7 @@ export default {
       // Скрываем навигацию на страницах входа/регистрации
       // На RoomDetail скрываем только на мобильных
       if (this.$route.name === 'RoomDetail' && this.isMobileScreen) return false;
-      return !['Login', 'SignUp'].includes(this.$route.name);
+      return !['UserLogin'].includes(this.$route.name);
     },
     isHomePage() {
       return this.$route.name === 'Home';
@@ -432,6 +432,7 @@ body.calendar-fullscreen-open .main-nav {
   background: var(--nav-bg);
   backdrop-filter: blur(10px);
   box-shadow: var(--nav-shadow);
+  border-bottom: 1px solid var(--color-gray-300);
 }
 
 .main-nav-cont {
@@ -565,7 +566,7 @@ body.calendar-fullscreen-open .main-nav {
 }
 
 .mobile-menu-link {
-  display: block;
+  display: flex;
   padding: 0.85rem 0.75rem;
   color: var(--color-gray-900);
   font-size: 1rem;
@@ -647,9 +648,9 @@ body.calendar-fullscreen-open .main-nav {
   border: 1px solid var(--color-gray-300);
   color: var(--nav-text);
   padding: 0.4rem 1rem;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   transition: all var(--transition-base);
 }
@@ -657,6 +658,33 @@ body.calendar-fullscreen-open .main-nav {
 .nav-button:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+.nav-phone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+.nav-phone:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.nav-phone-icon {
+  width: 22px;
+  height: 22px;
+  color: #333;
+}
+
+.mobile-phone-icon {
+  width: 18px;
+  height: 18px;
+  color: #333;
+  margin-right: 8px;
 }
 
 /* ======================================

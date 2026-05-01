@@ -2,11 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router';
 import RoomDetail from '@/components/RoomDetail.vue';
 import MainStr from '@/components/MainStr.vue';
 import UserLogin  from '@/components/Auth/UserLogin.vue';
-import SignUp from '@/components/Auth/SignUp.vue';
 import AdminRooms from '@/components/AdminRooms.vue';
 import AdminSitePanel from '@/components/AdminSitePanel.vue';
 import StatisticksBooking from '@/components/StatisticksBooking.vue'
-//import AdminPanel from '@/components/Admin/AdminPanel.vue';
+import NotFound from '@/components/NotFound.vue'
 
 import api from '@/api';
 
@@ -94,9 +93,9 @@ const routes = [
     }
   },
   {
-    path: '/signup',
-    name: 'SignUp',
-    component: SignUp,
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: NotFound
   }
 ];
 

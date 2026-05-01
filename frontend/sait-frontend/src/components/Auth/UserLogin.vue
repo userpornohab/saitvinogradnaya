@@ -11,7 +11,7 @@
           <input v-model="password" type="password" required>
         </div>
         <button type="submit">Войти</button>
-        <p>Нет аккаунта? <router-link to="/signup">Зарегистрируйтесь</router-link></p>
+        <router-link to="/" class="btn-home">На главную</router-link>
       </form>
     </div>
   </template>
@@ -44,7 +44,7 @@
           );
           
           localStorage.setItem('access_token', response.data.access_token);
-          this.$router.push('/');
+          this.$router.push('/admin/rooms');
         } catch (error) {
           console.error('Ошибка входа:', error.response.data.detail);
         }
@@ -69,5 +69,21 @@
     width: 100%;
     padding: 0.5rem;
     margin-top: 0.3rem;
+  }
+
+  .btn-home {
+    display: block;
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    color: #4c4cf7;
+    text-decoration: none;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+
+  .btn-home:hover {
+    background: #f3f4f6;
   }
   </style>

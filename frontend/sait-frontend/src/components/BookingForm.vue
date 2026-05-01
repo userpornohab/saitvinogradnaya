@@ -557,6 +557,7 @@ h6{
 
 .datepicker-fade-enter-from,
 .datepicker-fade-leave-to {
+  transition: all 0.6s ease;
   opacity: 0;
   transform: translateY(-10px);
 }
@@ -615,7 +616,9 @@ h6{
   .datepicker-wrapper {
     width: 100vw;
     left: 50%;
-    right: auto;
+    right: auto;  
+
+
     transform: translateX(-50%);
     top: 50%;
     transform: translate(-50%, -50%);

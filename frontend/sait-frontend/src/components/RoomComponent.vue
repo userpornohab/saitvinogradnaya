@@ -528,6 +528,8 @@ export default {
     .room-header{
       font-size: 12px;
     }
+
+
 }
 
 .flex_icons {
