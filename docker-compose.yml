@@ -41,6 +41,7 @@ services:
       dockerfile: Dockerfile
       args:
         VUE_APP_API_URL: https://api.vinegrape.ru
+        VUE_APP_TELEGRAM_BOT: vinegrapebot
     container_name: vinegrape-frontend
     restart: unless-stopped
     depends_on:
