@@ -33,6 +33,11 @@
         </div>
 
         <div class="form-group">
+          <label>Площадь (м²)</label>
+          <input type="number" v-model.number="formData.area" min="0" placeholder="0">
+        </div>
+
+        <div class="form-group">
           <label>Количество номеров</label>
           <input type="number" v-model.number="formData.number_of_rooms" min="1" required>
         </div>
@@ -196,6 +201,7 @@ export default {
         description: '',
         max_guests: 2,
         floor: 1,
+        area: 0,
         number_of_rooms: 1
       },
       newAmenityName: '',
@@ -215,6 +221,7 @@ export default {
             description: room.description || '',
             max_guests: room.max_guests || 2,
             floor: room.floor || 1,
+            area: room.area || 0,
             number_of_rooms: room.number_of_rooms || 1
           }
         }

@@ -12,7 +12,7 @@ import api from '@/api';
 
 const routes = [
   {
-    path: '/room/:id',
+    path: '/room=:id',
     name: 'RoomDetail',
     component: RoomDetail,
   },

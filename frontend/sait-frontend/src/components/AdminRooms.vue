@@ -112,7 +112,7 @@ export default {
       selectedFiles: [],
       newRoom: {
         title: '', title_dop: '', description: '',
-        floor: 1, max_guests: 2, number_of_rooms: 1,
+        floor: 1, max_guests: 2, number_of_rooms: 1, area: 0,
         amenities: [], bed_options: []
       },
       showPriceManagement: false,
@@ -140,7 +140,7 @@ export default {
       this.isNewRoom = true;
       this.showPriceManagement = false;
       this.showBookingManagement = false;
-      this.newRoom = { title: '', title_dop: '', description: '', floor: 1, max_guests: 2, number_of_rooms: 1, amenities: [], bed_options: [] };
+      this.newRoom = { title: '', title_dop: '', description: '', floor: 1, max_guests: 2, number_of_rooms: 1, area: 0, amenities: [], bed_options: [] };
     },
     selectRoom(room) {
       this.selectedRoom = room;
@@ -150,7 +150,7 @@ export default {
       this.selectedRoomId = null;
       this.newRoom = {
         title: room.title, title_dop: room.title_dop, description: room.description,
-        floor: room.floor, max_guests: room.max_guests, number_of_rooms: room.number_of_rooms,
+        floor: room.floor, max_guests: room.max_guests, number_of_rooms: room.number_of_rooms, area: room.area || 0,
         amenities: room.amenities.map(a => a.id), bed_options: room.bed_options.map(b => b.id)
       };
     },

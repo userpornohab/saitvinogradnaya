@@ -70,6 +70,7 @@ class RoomUpdate(BaseModel):
     bed_options: Optional[List[int]] = None
     amenities: Optional[List[int]] = None
     floor: Optional[int] = None  # Добавленное поле
+    area: Optional[int] = None
 
 class AmenityCreate(AmenityBase):
     pass
@@ -117,6 +118,7 @@ class RoomBase(BaseModel):
     number_of_rooms: int
     title_dop: Optional[str] = None
     floor: Optional[int] = None  # Добавленное поле
+    area: Optional[int] = 0
 
 
 class RoomCreate(RoomBase):
@@ -131,6 +133,7 @@ class RoomResponse(RoomBase):
     bed_options: List[BedOptionResponse]
     title_dop: Optional[str] = None  # Добавляем сюда
     floor: Optional[int] = None
+    area: Optional[int] = 0
 
 
     class Config:

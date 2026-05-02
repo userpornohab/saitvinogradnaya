@@ -31,7 +31,7 @@
               <h2>{{ room.title_dop }}</h2>
             </div>
             <div class="info_about_room">
-              <div class="info_about_room_cont">21 м2</div>
+              <div class="info_about_room_cont" v-if="room.area">{{ room.area }} м²</div>
               <div class="info_about_room_cont">{{ room.max_guests }} гостя</div>
               <div class="info_about_room_cont">{{ room.floor }} этаж</div>
               <div class="info_about_room_cont">{{ room.bed_options.length  }} кровати</div>

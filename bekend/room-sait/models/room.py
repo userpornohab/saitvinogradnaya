@@ -88,6 +88,7 @@ class Room(Base):
     number_of_rooms = Column(Integer)
     title_dop = Column(String(100))
     floor = Column(Integer, nullable=True)  # Добавленное поле этажа
+    area = Column(Integer, default=0)  # Площадь помещения (м2)
 
     # Relationships
     bed_options = relationship("BedOption", secondary="room_bed_options", back_populates="rooms")

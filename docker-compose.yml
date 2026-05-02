@@ -54,6 +54,20 @@ services:
       - traefik.http.routers.front.tls.certresolver=letsencrypt
       - traefik.http.services.front.loadbalancer.server.port=80
 
+  bot:
+    build:
+      context: ./bekend
+      dockerfile: Dockerfile
+    container_name: vinegrape-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["python", "run_bot.py"]
+    depends_on:
+      - backend
+    networks:
+      - app-net
+
 networks:
   app-net:
     driver: bridge

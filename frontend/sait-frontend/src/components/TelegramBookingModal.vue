@@ -364,11 +364,11 @@ export default {
 /* WhatsApp */
 .tg-btn--whatsapp {
   background: linear-gradient(135deg, #2531d3 0%, #12478c 100%);
-  box-shadow: 0 8px 18px rgba(37, 211, 102, 0.3);
+  box-shadow: 0 8px 18px rgba(37, 40, 211, 0.555);
 }
 
 .tg-btn--whatsapp:hover {
-  box-shadow: 0 12px 24px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 12px 24px rgba(52, 55, 243, 0.555);
 }
 
 .tg-disclaimer {

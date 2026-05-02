@@ -20,7 +20,8 @@ def create_room(room_data: RoomCreate, db: Session = Depends(get_db)):
         floor=room_data.floor,
         description=room_data.description,
         max_guests=room_data.max_guests,
-        number_of_rooms=room_data.number_of_rooms
+        number_of_rooms=room_data.number_of_rooms,
+        area=room_data.area or 0
     )
     db.add(db_room)
     db.commit()
@@ -227,6 +228,8 @@ def update_room(
 
     if update_data.floor is not None:
         db_room.floor = update_data.floor
+    if update_data.area is not None:
+        db_room.area = update_data.area
 
     db.commit()
     db.refresh(db_room)
