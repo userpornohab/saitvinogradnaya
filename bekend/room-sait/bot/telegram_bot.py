@@ -18,6 +18,7 @@ from typing import Optional
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message
@@ -168,9 +169,14 @@ async def run_bot() -> None:
         )
         manager_chat_id = None
 
+    # Прокси для доступа к Telegram API (если заблокирован)
+    proxy_url = os.getenv("TELEGRAM_API_PROXY")
+    session = AiohttpSession(proxy=proxy_url) if proxy_url else None
+
     bot = Bot(
         token=token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        session=session,
     )
     dp = create_dispatcher(manager_chat_id)
 
