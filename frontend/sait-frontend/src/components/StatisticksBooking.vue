@@ -52,99 +52,242 @@
         </div>
       </div>
 
-      <!-- Основные карточки статистики -->
-      <div class="stats-cards" v-if="statistics">
-        <div class="stat-card">
-          <div class="stat-card-icon">📊</div>
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ statistics.statistics.total_bookings }}</div>
-            <div class="stat-card-label">Всего броней</div>
+      <section class="stats-section" v-if="statistics">
+        <div class="stats-section-header">
+          <h2 class="stats-section-title">Данные о бронированиях</h2>
+          <p class="stats-section-subtitle">Доход, загрузка, гости и разрез по номерам за выбранный период.</p>
+        </div>
+
+        <!-- Основные карточки статистики -->
+        <div class="stats-cards">
+          <div class="stat-card">
+            <div class="stat-card-icon">📊</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ statistics.statistics.total_bookings }}</div>
+              <div class="stat-card-label">Всего броней</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-icon">💰</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ formatCurrency(statistics.statistics.total_income) }}</div>
+              <div class="stat-card-label">Общий доход</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-icon">👥</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ statistics.statistics.total_guests }}</div>
+              <div class="stat-card-label">Всего гостей</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-icon">📅</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ statistics.statistics.avg_duration || 0 }}</div>
+              <div class="stat-card-label">Среднее пребывание (ночей)</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-icon">%</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ statistics.statistics.occupancy_rate || 0 }}%</div>
+              <div class="stat-card-label">Загрузка номерного фонда</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-icon">₽</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ formatCurrency(statistics.statistics.avg_check) }}</div>
+              <div class="stat-card-label">Средний чек</div>
+            </div>
           </div>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-card-icon">💰</div>
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ formatCurrency(statistics.statistics.total_income) }}</div>
-            <div class="stat-card-label">Общий доход</div>
+        <!-- Информация о периоде -->
+        <div class="period-info">
+          <p><strong>Период:</strong> {{ formatDate(statistics.period.start_date) }} — {{ formatDate(statistics.period.end_date) }}</p>
+          <p v-if="statistics.filter.room_title"><strong>Фильтр:</strong> {{ statistics.filter.room_title }}</p>
+          <p v-if="statistics.previous_period">
+            <strong>К прошлому периоду:</strong>
+            броней {{ formatChange(statistics.previous_period.changes.bookings_percent) }},
+            доход {{ formatChange(statistics.previous_period.changes.income_percent) }},
+            загрузка {{ formatChange(statistics.previous_period.changes.occupancy_percent) }}
+          </p>
+        </div>
+
+        <!-- Графики по номерам (только когда выбраны ВСЕ номера) -->
+        <div class="charts-grid" v-if="statistics.monthly_income?.length || statistics.monthly_occupancy?.length || statistics.room_statistics?.length > 1">
+          <div class="chart-card" v-if="statistics.monthly_income?.length">
+            <h3 class="chart-title">Доход по месяцам</h3>
+            <ApexChartComponent
+              :key="'monthly-' + customStartDate + '-' + customEndDate"
+              type="line"
+              height="300"
+              width="100%"
+              :options="monthlyIncomeChartOptions"
+              :series="monthlyIncomeChartSeries"
+            />
+          </div>
+
+          <div class="chart-card" v-if="statistics.monthly_occupancy?.length">
+            <h3 class="chart-title">Загрузка по месяцам</h3>
+            <ApexChartComponent
+              :key="'occupancy-' + customStartDate + '-' + customEndDate + '-' + selectedRoomId"
+              type="line"
+              height="300"
+              width="100%"
+              :options="monthlyOccupancyChartOptions"
+              :series="monthlyOccupancyChartSeries"
+            />
+          </div>
+
+          <!-- График бронирований по номерам -->
+          <div class="chart-card" v-if="statistics.room_statistics?.length > 1">
+            <h3 class="chart-title">Бронирования по номерам</h3>
+            <ApexChartComponent
+              :key="'bookings-' + customStartDate + '-' + customEndDate"
+              type="bar"
+              height="300"
+              width="100%"
+              :options="bookingsChartOptions"
+              :series="bookingsChartSeries"
+            />
+          </div>
+
+          <!-- График дохода по номерам -->
+          <div class="chart-card" v-if="statistics.room_statistics?.length > 1">
+            <h3 class="chart-title">Доход по номерам</h3>
+            <ApexChartComponent
+              :key="'income-' + customStartDate + '-' + customEndDate"
+              type="bar"
+              height="300"
+              width="100%"
+              :options="incomeChartOptions"
+              :series="incomeChartSeries"
+            />
           </div>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-card-icon">👥</div>
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ statistics.statistics.total_guests }}</div>
-            <div class="stat-card-label">Всего гостей</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-card-icon">📅</div>
-          <div class="stat-card-content">
-            <div class="stat-card-value">{{ statistics.statistics.avg_duration || 0 }}</div>
-            <div class="stat-card-label">Среднее пребывание (ночей)</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Информация о периоде -->
-      <div class="period-info" v-if="statistics">
-        <p><strong>Период:</strong> {{ formatDate(statistics.period.start_date) }} — {{ formatDate(statistics.period.end_date) }}</p>
-        <p v-if="statistics.filter.room_title"><strong>Фильтр:</strong> {{ statistics.filter.room_title }}</p>
-      </div>
-
-      <!-- Графики по номерам (только когда выбраны ВСЕ номера) -->
-      <div class="charts-grid" v-if="statistics && statistics.room_statistics?.length > 1">
-        <!-- График бронирований по номерам -->
-        <div class="chart-card">
-          <h3 class="chart-title">Бронирования по номерам</h3>
-          <ApexChartComponent
-            :key="'bookings-' + customStartDate + '-' + customEndDate"
-            type="bar"
-            height="300"
-            width="100%"
-            :options="bookingsChartOptions"
-            :series="bookingsChartSeries"
-          />
-        </div>
-
-        <!-- График дохода по номерам -->
-        <div class="chart-card">
-          <h3 class="chart-title">Доход по номерам</h3>
-          <ApexChartComponent
-            :key="'income-' + customStartDate + '-' + customEndDate"
-            type="bar"
-            height="300"
-            width="100%"
-            :options="incomeChartOptions"
-            :series="incomeChartSeries"
-          />
-        </div>
-      </div>
-
-      <!-- Статистика по номерам -->
-      <div class="room-stats" v-if="statistics && statistics.room_statistics?.length">
-        <h3 class="room-stats-title">Статистика по номерам</h3>
-        <div class="room-stats-grid">
-          <div v-for="roomStat in statistics.room_statistics" :key="roomStat.room_id" class="room-stat-card">
-            <h4 class="room-stat-title">{{ roomStat.room_title }}</h4>
-            <div class="room-stat-details">
-              <div class="room-stat-item">
-                <span class="room-stat-label">Броней:</span>
-                <span class="room-stat-value">{{ roomStat.booking_count }}</span>
-              </div>
-              <div class="room-stat-item">
-                <span class="room-stat-label">Доход:</span>
-                <span class="room-stat-value">{{ formatCurrency(roomStat.total_income) }}</span>
-              </div>
-              <div class="room-stat-item">
-                <span class="room-stat-label">Гостей:</span>
-                <span class="room-stat-value">{{ roomStat.total_guests }}</span>
+        <!-- Статистика по номерам -->
+        <div class="room-stats" v-if="statistics.room_statistics?.length">
+          <h3 class="room-stats-title">Статистика по номерам</h3>
+          <div class="room-stats-grid">
+            <div v-for="roomStat in statistics.room_statistics" :key="roomStat.room_id" class="room-stat-card">
+              <h4 class="room-stat-title">{{ roomStat.room_title }}</h4>
+              <div class="room-stat-details">
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Броней:</span>
+                  <span class="room-stat-value">{{ roomStat.booking_count }}</span>
+                </div>
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Доход:</span>
+                  <span class="room-stat-value">{{ formatCurrency(roomStat.total_income) }}</span>
+                </div>
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Гостей:</span>
+                  <span class="room-stat-value">{{ roomStat.total_guests }}</span>
+                </div>
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Загрузка:</span>
+                  <span class="room-stat-value">{{ roomStat.occupancy_rate || 0 }}%</span>
+                </div>
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Ночей:</span>
+                  <span class="room-stat-value">{{ roomStat.total_nights || 0 }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section class="stats-section stats-section--clicks" v-if="analytics">
+        <div class="stats-section-header">
+          <h2 class="stats-section-title">Статистика кликов</h2>
+          <p class="stats-section-subtitle">Интерес к номерам и действия гостей на сайте.</p>
+        </div>
+
+        <div class="stats-cards">
+          <div class="stat-card stat-card--analytics">
+            <div class="stat-card-icon">👆</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ analytics.totals.room_clicks }}</div>
+              <div class="stat-card-label">Клики по номерам</div>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card--analytics">
+            <div class="stat-card-icon">✓</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ analytics.totals.booking_clicks }}</div>
+              <div class="stat-card-label">Клики «Забронировать»</div>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card--analytics">
+            <div class="stat-card-icon">☎</div>
+            <div class="stat-card-content">
+              <div class="stat-card-value">{{ analytics.totals.phone_clicks }}</div>
+              <div class="stat-card-label">Клики «Позвонить»</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-grid" v-if="analytics.daily?.length">
+          <div class="chart-card">
+            <h3 class="chart-title">Клики по дням</h3>
+            <ApexChartComponent
+              :key="'clicks-daily-' + customStartDate + '-' + customEndDate + '-' + selectedRoomId"
+              type="line"
+              height="300"
+              width="100%"
+              :options="clicksDailyChartOptions"
+              :series="clicksDailyChartSeries"
+            />
+          </div>
+
+          <div class="chart-card" v-if="analytics.room_statistics?.length">
+            <h3 class="chart-title">Клики по номерам</h3>
+            <ApexChartComponent
+              :key="'clicks-rooms-' + customStartDate + '-' + customEndDate"
+              type="bar"
+              height="300"
+              width="100%"
+              :options="roomClicksChartOptions"
+              :series="roomClicksChartSeries"
+            />
+          </div>
+        </div>
+
+        <div class="room-stats" v-if="analytics.room_statistics?.length">
+          <h3 class="room-stats-title">Клики по каждому номеру</h3>
+          <div class="room-stats-grid">
+            <div v-for="roomStat in analytics.room_statistics" :key="'clicks-' + roomStat.room_id" class="room-stat-card">
+              <h4 class="room-stat-title">{{ roomStat.room_title }}</h4>
+              <div class="room-stat-details">
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Карточка номера:</span>
+                  <span class="room-stat-value">{{ roomStat.room_clicks }}</span>
+                </div>
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Забронировать:</span>
+                  <span class="room-stat-value">{{ roomStat.booking_clicks }}</span>
+                </div>
+                <div class="room-stat-item">
+                  <span class="room-stat-label">Позвонить:</span>
+                  <span class="room-stat-value">{{ roomStat.phone_clicks }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- Загрузка -->
       <div v-if="loading" class="loading-state">
@@ -184,6 +327,7 @@ export default {
       selectedRoomId: 'all',
       rooms: [],
       statistics: null,
+      analytics: null,
       loading: false,
       error: null,
       periodOptions: [
@@ -238,6 +382,102 @@ export default {
         name: 'Доход',
         data: roomStats.map(r => r.total_income)
       }];
+    },
+    monthlyIncomeChartOptions() {
+      const months = this.statistics?.monthly_income || [];
+      return {
+        chart: { toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#4c4cf7'],
+        stroke: { curve: 'smooth', width: 3 },
+        markers: { size: 4 },
+        xaxis: { categories: months.map(item => this.formatMonthLabel(item.month)), axisBorder: { show: false } },
+        yaxis: {
+          min: 0,
+          forceNiceScale: true,
+          labels: { formatter: val => `${Math.round(val / 1000)}к ₽` }
+        },
+        grid: { borderColor: '#f0f0f0' },
+        dataLabels: { enabled: false },
+        tooltip: { y: { formatter: val => `${val.toLocaleString('ru-RU')} ₽` } },
+      };
+    },
+    monthlyIncomeChartSeries() {
+      const months = this.statistics?.monthly_income || [];
+      return [{
+        name: 'Доход',
+        data: months.map(item => item.income)
+      }];
+    },
+    monthlyOccupancyChartOptions() {
+      const months = this.statistics?.monthly_occupancy || [];
+      return {
+        chart: { toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#6f6af8'],
+        stroke: { curve: 'smooth', width: 3 },
+        markers: { size: 4 },
+        xaxis: { categories: months.map(item => this.formatMonthLabel(item.month)), axisBorder: { show: false } },
+        yaxis: {
+          min: 0,
+          max: 100,
+          labels: { formatter: val => `${Math.round(val)}%` }
+        },
+        grid: { borderColor: '#f0f0f0' },
+        dataLabels: { enabled: false },
+        tooltip: {
+          y: { formatter: val => `${val}% загрузки` }
+        },
+      };
+    },
+    monthlyOccupancyChartSeries() {
+      const months = this.statistics?.monthly_occupancy || [];
+      return [{
+        name: 'Загрузка',
+        data: months.map(item => item.occupancy_rate)
+      }];
+    },
+    clicksDailyChartOptions() {
+      const days = this.analytics?.daily || [];
+      return {
+        chart: { toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#4c4cf7', '#B63A47', '#3F7D5B'],
+        stroke: { curve: 'smooth', width: 3 },
+        markers: { size: 3 },
+        xaxis: { categories: days.map(item => this.formatShortDate(item.date)), axisBorder: { show: false } },
+        yaxis: {
+          min: 0,
+          forceNiceScale: true,
+          labels: { formatter: val => Math.round(val) }
+        },
+        grid: { borderColor: '#f0f0f0' },
+        dataLabels: { enabled: false },
+      };
+    },
+    clicksDailyChartSeries() {
+      const days = this.analytics?.daily || [];
+      return [
+        { name: 'Номера', data: days.map(item => item.room_click) },
+        { name: 'Забронировать', data: days.map(item => item.booking_click) },
+        { name: 'Позвонить', data: days.map(item => item.phone_click) },
+      ];
+    },
+    roomClicksChartOptions() {
+      const roomStats = this.analytics?.room_statistics || [];
+      return {
+        chart: { toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#4c4cf7', '#B63A47'],
+        plotOptions: { bar: { borderRadius: 6, columnWidth: '60%' } },
+        xaxis: { categories: roomStats.map(room => room.room_title), axisBorder: { show: false } },
+        yaxis: { min: 0, labels: { formatter: val => Math.round(val) } },
+        grid: { borderColor: '#f0f0f0' },
+        dataLabels: { enabled: false },
+      };
+    },
+    roomClicksChartSeries() {
+      const roomStats = this.analytics?.room_statistics || [];
+      return [
+        { name: 'Клики по номеру', data: roomStats.map(room => room.room_clicks) },
+        { name: 'Забронировать', data: roomStats.map(room => room.booking_clicks) },
+      ];
     },
   },
   mounted() {
@@ -304,8 +544,12 @@ export default {
           params.room_id = parseInt(this.selectedRoomId);
         }
 
-        const response = await api.get('/bookings/booking-stats', { params });
-        this.statistics = response.data;
+        const [bookingResponse, analyticsResponse] = await Promise.all([
+          api.get('/bookings/booking-stats', { params }),
+          api.get('/analytics/stats', { params })
+        ]);
+        this.statistics = bookingResponse.data;
+        this.analytics = analyticsResponse.data;
       } catch (error) {
         this.error = error.response?.data?.detail || 'Ошибка загрузки статистики';
         console.error('Ошибка загрузки статистики:', error);
@@ -319,7 +563,10 @@ export default {
       return date.toLocaleDateString('ru-RU');
     },
     formatDateForInput(date) {
-      return date.toISOString().split('T')[0];
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     },
     formatCurrency(amount) {
       if (!amount && amount !== 0) return '0 ₽';
@@ -328,6 +575,27 @@ export default {
         currency: 'RUB',
         minimumFractionDigits: 0
       }).format(amount);
+    },
+    formatChange(value) {
+      if (value === null || value === undefined) return 'нет базы';
+      const sign = value > 0 ? '+' : '';
+      return `${sign}${value}%`;
+    },
+    formatMonthLabel(month) {
+      if (!month) return '';
+      const [year, monthIndex] = month.split('-').map(Number);
+      return new Date(year, monthIndex - 1, 1).toLocaleDateString('ru-RU', {
+        month: 'short',
+        year: '2-digit'
+      });
+    },
+    formatShortDate(dateString) {
+      if (!dateString) return '';
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit'
+      });
     }
   }
 }
@@ -425,18 +693,18 @@ export default {
    ====================================== */
 .stats-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-xl);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-white);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
 }
@@ -446,15 +714,20 @@ export default {
   transform: translateY(-2px);
 }
 
+.stat-card--analytics {
+  border-left: 4px solid var(--color-secondary);
+}
+
 .stat-card-icon {
-  font-size: 2.5rem;
-  width: 60px;
-  height: 60px;
+  font-size: 1.7rem;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-primary-soft);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
+  flex: 0 0 46px;
 }
 
 .stat-card-content {
@@ -462,16 +735,17 @@ export default {
 }
 
 .stat-card-value {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--color-gray-900);
   line-height: 1.2;
 }
 
 .stat-card-label {
-  font-size: var(--text-sm);
+  font-size: 12px;
   color: var(--color-gray-500);
   margin-top: var(--spacing-xs);
+  line-height: 1.35;
 }
 
 /* ======================================
@@ -489,6 +763,35 @@ export default {
 
 .period-info p {
   margin: var(--spacing-xs) 0;
+}
+
+/* ======================================
+   SECTIONS
+   ====================================== */
+.stats-section {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.stats-section-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.stats-section-title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-gray-900);
+}
+
+.stats-section-subtitle {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--color-gray-500);
+  font-size: var(--text-sm);
+}
+
+.stats-section--clicks {
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--color-gray-200);
 }
 
 /* ======================================

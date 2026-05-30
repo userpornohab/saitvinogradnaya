@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Date, Float
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Date, Float, DateTime
+from datetime import datetime
 from sqlalchemy.orm import relationship
 from database.database import Base
 from .user import User 
@@ -74,6 +75,7 @@ class RoomPhoto(Base):
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String(200))
     is_main = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
     room_id = Column(Integer, ForeignKey("rooms.id"))
     
     room = relationship("Room", back_populates="photos")
@@ -110,6 +112,8 @@ class CourtyardPhoto(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String(200))
+    category = Column(String(30), default="yard")
+    sort_order = Column(Integer, default=0)
     site_info_id = Column(Integer, ForeignKey("site_info.id"), default=1)
     
     site_info = relationship("SiteInfo", backref="courtyard_photos")
@@ -134,3 +138,14 @@ class FAQ(Base):
     site_info_id = Column(Integer, ForeignKey("site_info.id"), default=1)
     
     site_info = relationship("SiteInfo", backref="faqs")
+
+class SiteEvent(Base):
+    __tablename__ = "site_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String(50), index=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
+    path = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    room = relationship("Room")

@@ -4,12 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import event
+from sqlalchemy import inspect, text
 from pathlib import Path
-import shutil
-from datetime import datetime
 
 from database.database import get_db, engine, Base
 from models.room import RoomPhoto
+from utils.image_upload import save_raw_upload
 from routers import (
     auth,
     rooms,
@@ -17,7 +17,8 @@ from routers import (
     amenities,
     bed_options,
     price_periods,
-    site  
+    site,
+    analytics
 )
 
 app = FastAPI()
@@ -42,6 +43,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://10.7.0.5:8080",
         "https://vinegrape.ru",
         "http://vinegrape.ru",
     ],
@@ -61,20 +64,43 @@ ICON_DIR.mkdir(parents=True, exist_ok=True)  # Создаем директори
 UPLOAD_DIR = Path("static/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+def ensure_courtyard_photo_columns():
+    inspector = inspect(engine)
+    if "courtyard_photos" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("courtyard_photos")}
+    with engine.begin() as connection:
+        if "category" not in columns:
+            connection.execute(text("ALTER TABLE courtyard_photos ADD COLUMN category VARCHAR(30) DEFAULT 'yard'"))
+        if "sort_order" not in columns:
+            connection.execute(text("ALTER TABLE courtyard_photos ADD COLUMN sort_order INTEGER DEFAULT 0"))
+
+ensure_courtyard_photo_columns()
+
+def ensure_room_photo_columns():
+    inspector = inspect(engine)
+    if "room_photos" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("room_photos")}
+    with engine.begin() as connection:
+        if "sort_order" not in columns:
+            connection.execute(text("ALTER TABLE room_photos ADD COLUMN sort_order INTEGER DEFAULT 0"))
+
+ensure_room_photo_columns()
+
 @app.post("/upload-icon")
 async def upload_icon(file: UploadFile = File(...)):
     try:
-        if file.content_type not in ["image/svg+xml", "image/png", "image/jpeg"]:
-            raise HTTPException(400, "Invalid file type")
-        
-        filename = f"icon_{datetime.now().strftime('%Y%m%d%H%M%S')}{Path(file.filename).suffix}"
-        filepath = ICON_DIR / filename
-        
-        with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        return {"icon_url": f"/static/icons/{filename}"}
-    
+        icon_url = await save_raw_upload(
+            file=file,
+            upload_dir=ICON_DIR,
+            prefix="icon",
+            allowed_types={"image/svg+xml", "image/png", "image/jpeg", "image/webp"},
+            max_bytes=1024 * 1024
+        )
+        return {"icon_url": icon_url}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"File upload failed: {str(e)}")
 
@@ -86,6 +112,7 @@ app.include_router(amenities.router)
 app.include_router(bed_options.router)
 app.include_router(price_periods.router)
 app.include_router(site.router)
+app.include_router(analytics.router)
 
 
 # Каскадное удаление файлов

@@ -44,6 +44,7 @@ class BedOptionResponse(BedOptionBase):
 class RoomPhotoBase(BaseModel):
     url: str
     is_main: bool
+    sort_order: int = 0
 
 class RoomPhotoResponse(RoomPhotoBase):
     id: int
@@ -51,6 +52,10 @@ class RoomPhotoResponse(RoomPhotoBase):
 
     class Config:
         orm_mode = True
+
+class RoomPhotoOrderItem(BaseModel):
+    id: int
+    sort_order: int
 
 class AmenityBase(BaseModel):
     id: int  # Добавляем ID в ответ
@@ -146,6 +151,8 @@ class RoomFilter(BaseModel):
 
 class CourtyardPhotoBase(BaseModel):
     url: str
+    category: str = "yard"
+    sort_order: int = 0
 
 class CourtyardPhotoCreate(CourtyardPhotoBase):
     pass
@@ -154,6 +161,15 @@ class CourtyardPhotoResponse(CourtyardPhotoBase):
     id: int
     class Config:
         orm_mode = True
+
+class CourtyardPhotoUpdate(BaseModel):
+    category: Optional[str] = None
+    sort_order: Optional[int] = None
+
+class CourtyardPhotoOrderItem(BaseModel):
+    id: int
+    sort_order: int
+    category: Optional[str] = None
 
 class TestimonialBase(BaseModel):
     author_icon_url:Optional[str] = None

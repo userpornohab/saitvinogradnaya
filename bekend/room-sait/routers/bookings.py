@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List,  Optional
 from sqlalchemy import func, and_
 from models.user import User
-from datetime import date
+from datetime import date, timedelta
 
 from database.database import get_db
 from models.room import Booking, Room
@@ -12,6 +12,117 @@ from auth.dependencies import check_superuser
 from utils.price_calculator import calculate_booking_price
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
+
+def _overlap_nights(booking: Booking, start_date: date, end_date: date) -> int:
+    start = max(booking.check_in_date, start_date)
+    end = min(booking.check_out_date, end_date + timedelta(days=1))
+    return max((end - start).days, 0)
+
+def _overlap_income(booking: Booking, start_date: date, end_date: date) -> float:
+    booking_nights = max((booking.check_out_date - booking.check_in_date).days, 0)
+    if booking_nights == 0:
+        return 0.0
+    return float(booking.price) / booking_nights * _overlap_nights(booking, start_date, end_date)
+
+def _period_stats(bookings: List[Booking], start_date: date, end_date: date, rooms_count: int) -> dict:
+    total_bookings = len(bookings)
+    total_income = sum(_overlap_income(booking, start_date, end_date) for booking in bookings)
+    total_guests = sum(booking.number_of_guests for booking in bookings)
+    total_nights = sum(_overlap_nights(booking, start_date, end_date) for booking in bookings)
+    total_capacity_nights = max(((end_date - start_date).days + 1) * rooms_count, 0)
+    occupancy_rate = (total_nights / total_capacity_nights * 100) if total_capacity_nights else 0
+
+    return {
+        "total_bookings": total_bookings,
+        "total_income": float(total_income),
+        "total_guests": total_guests,
+        "total_nights": total_nights,
+        "avg_duration": round(total_nights / total_bookings, 1) if total_bookings else 0,
+        "avg_check": round(float(total_income) / total_bookings, 2) if total_bookings else 0,
+        "occupancy_rate": round(occupancy_rate, 1),
+        "capacity_nights": total_capacity_nights
+    }
+
+def _percent_change(current: float, previous: float) -> Optional[float]:
+    if previous == 0:
+        return None if current else 0
+    return round((current - previous) / previous * 100, 1)
+
+def _month_key(value: date) -> str:
+    return value.strftime("%Y-%m")
+
+def _next_month(value: date) -> date:
+    if value.month == 12:
+        return date(value.year + 1, 1, 1)
+    return date(value.year, value.month + 1, 1)
+
+def _monthly_income(bookings: List[Booking], start_date: date, end_date: date) -> List[dict]:
+    month_totals = {}
+    current_month = date(start_date.year, start_date.month, 1)
+    last_month = date(end_date.year, end_date.month, 1)
+
+    while current_month <= last_month:
+        month_totals[_month_key(current_month)] = 0.0
+        current_month = _next_month(current_month)
+
+    for booking in bookings:
+        booking_nights = max((booking.check_out_date - booking.check_in_date).days, 0)
+        if booking_nights == 0:
+            continue
+
+        price_per_night = float(booking.price) / booking_nights
+        current = max(booking.check_in_date, start_date)
+        booking_end = min(booking.check_out_date, end_date + timedelta(days=1))
+
+        while current < booking_end:
+            month_start = date(current.year, current.month, 1)
+            month_end = min(_next_month(month_start), booking_end)
+            nights = max((month_end - current).days, 0)
+            month_totals[_month_key(month_start)] = month_totals.get(_month_key(month_start), 0.0) + price_per_night * nights
+            current = month_end
+
+    return [
+        {"month": month, "income": round(income, 2)}
+        for month, income in sorted(month_totals.items())
+    ]
+
+def _monthly_occupancy(bookings: List[Booking], start_date: date, end_date: date, rooms_count: int) -> List[dict]:
+    month_nights = {}
+    month_capacity = {}
+    current_month = date(start_date.year, start_date.month, 1)
+    last_month = date(end_date.year, end_date.month, 1)
+
+    while current_month <= last_month:
+        next_month = _next_month(current_month)
+        period_start = max(current_month, start_date)
+        period_end = min(next_month, end_date + timedelta(days=1))
+        days_in_period = max((period_end - period_start).days, 0)
+        key = _month_key(current_month)
+        month_nights[key] = 0
+        month_capacity[key] = days_in_period * rooms_count
+        current_month = next_month
+
+    for booking in bookings:
+        current = max(booking.check_in_date, start_date)
+        booking_end = min(booking.check_out_date, end_date + timedelta(days=1))
+
+        while current < booking_end:
+            month_start = date(current.year, current.month, 1)
+            month_end = min(_next_month(month_start), booking_end)
+            nights = max((month_end - current).days, 0)
+            key = _month_key(month_start)
+            month_nights[key] = month_nights.get(key, 0) + nights
+            current = month_end
+
+    return [
+        {
+            "month": month,
+            "occupancy_rate": round(month_nights[month] / month_capacity[month] * 100, 1) if month_capacity[month] else 0,
+            "occupied_nights": month_nights[month],
+            "capacity_nights": month_capacity[month]
+        }
+        for month in sorted(month_capacity.keys())
+    ]
 @router.patch("/{booking_id}", response_model=BookingResponse, dependencies=[Depends(check_superuser)])
 async def update_booking(
     booking_id: int,
@@ -231,40 +342,70 @@ async def get_booking_statistics(
     if room_id is not None:
         query = query.filter(Booking.room_id == room_id)
     
-    # Получаем все бронирования за период
+    rooms_query = db.query(Room)
+    if room_id is not None:
+        rooms_query = rooms_query.filter(Room.id == room_id)
+    rooms_count = sum(room.number_of_rooms for room in rooms_query.all())
+
+    period_days = (end_date - start_date).days + 1
+    previous_end = start_date - timedelta(days=1)
+    previous_start = previous_end - timedelta(days=period_days - 1)
+
+    previous_query = db.query(Booking).filter(
+        and_(
+            Booking.check_in_date <= previous_end,
+            Booking.check_out_date >= previous_start
+        )
+    )
+    if room_id is not None:
+        previous_query = previous_query.filter(Booking.room_id == room_id)
+
     bookings_in_period = query.all()
+    previous_bookings = previous_query.all()
     
-    # Рассчитываем статистику
-    total_bookings = len(bookings_in_period)
-    total_income = sum(booking.price for booking in bookings_in_period)
-    total_guests = sum(booking.number_of_guests for booking in bookings_in_period)
+    statistics = _period_stats(bookings_in_period, start_date, end_date, rooms_count)
+    previous_statistics = _period_stats(previous_bookings, previous_start, previous_end, rooms_count)
+
+    monthly_income = _monthly_income(bookings_in_period, start_date, end_date)
+    monthly_occupancy = _monthly_occupancy(bookings_in_period, start_date, end_date, rooms_count)
     
     # Дополнительная статистика по комнатам
     room_stats = []
     if room_id is None:  # Только если не фильтруем по конкретной комнате
-        # Группируем по комнатам
-        room_query = db.query(
-            Booking.room_id,
-            Room.title,
-            func.count(Booking.id).label('booking_count'),
-            func.sum(Booking.price).label('total_income'),
-            func.sum(Booking.number_of_guests).label('total_guests')
-        ).join(Room).filter(
-            and_(
-                Booking.check_in_date <= end_date,
-                Booking.check_out_date >= start_date
-            )
-        ).group_by(Booking.room_id, Room.title)
-        
-        room_stats_data = room_query.all()
-        
-        for room_stat in room_stats_data:
+        bookings_by_room = {}
+        for booking in bookings_in_period:
+            stats = bookings_by_room.setdefault(booking.room_id, {
+                "booking_count": 0,
+                "total_income": 0,
+                "total_guests": 0,
+                "total_nights": 0
+            })
+            stats["booking_count"] += 1
+            stats["total_income"] += _overlap_income(booking, start_date, end_date)
+            stats["total_guests"] += booking.number_of_guests
+            stats["total_nights"] += _overlap_nights(booking, start_date, end_date)
+
+        all_rooms = db.query(Room).order_by(Room.id).all()
+        period_capacity_days = (end_date - start_date).days + 1
+
+        for room in all_rooms:
+            stats = bookings_by_room.get(room.id, {
+                "booking_count": 0,
+                "total_income": 0,
+                "total_guests": 0,
+                "total_nights": 0
+            })
+            capacity_nights = period_capacity_days * room.number_of_rooms
             room_stats.append({
-                "room_id": room_stat.room_id,
-                "room_title": room_stat.title,
-                "booking_count": room_stat.booking_count or 0,
-                "total_income": float(room_stat.total_income or 0),
-                "total_guests": room_stat.total_guests or 0
+                "room_id": room.id,
+                "room_title": room.title,
+                "booking_count": stats["booking_count"],
+                "total_income": float(stats["total_income"]),
+                "total_guests": stats["total_guests"],
+                "total_nights": stats["total_nights"],
+                "occupancy_rate": round(stats["total_nights"] / capacity_nights * 100, 1) if capacity_nights else 0,
+                "avg_check": round(stats["total_income"] / stats["booking_count"], 2) if stats["booking_count"] else 0,
+                "avg_duration": round(stats["total_nights"] / stats["booking_count"], 1) if stats["booking_count"] else 0,
             })
     
     return {
@@ -276,11 +417,20 @@ async def get_booking_statistics(
             "room_id": room_id,
             "room_title": db.query(Room.title).filter(Room.id == room_id).scalar() if room_id else "Все комнаты"
         },
-        "statistics": {
-            "total_bookings": total_bookings,
-            "total_income": float(total_income),
-            "total_guests": total_guests
+        "statistics": statistics,
+        "previous_period": {
+            "start_date": previous_start,
+            "end_date": previous_end,
+            "statistics": previous_statistics,
+            "changes": {
+                "bookings_percent": _percent_change(statistics["total_bookings"], previous_statistics["total_bookings"]),
+                "income_percent": _percent_change(statistics["total_income"], previous_statistics["total_income"]),
+                "guests_percent": _percent_change(statistics["total_guests"], previous_statistics["total_guests"]),
+                "occupancy_percent": _percent_change(statistics["occupancy_rate"], previous_statistics["occupancy_rate"])
+            }
         },
+        "monthly_income": monthly_income,
+        "monthly_occupancy": monthly_occupancy,
         "room_statistics": room_stats if room_id is None else None
     }
 

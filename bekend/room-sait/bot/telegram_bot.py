@@ -11,10 +11,12 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import os
+import re
 from datetime import date
-from typing import Optional
+from typing import Dict, Optional
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
@@ -76,12 +78,31 @@ def build_manager_message(payload: BookingPayload, user: Message) -> str:
     )
 
 
+def extract_user_id_from_manager_message(message: Optional[Message]) -> Optional[int]:
+    """Достаёт Telegram user_id клиента из сообщения, на которое отвечает менеджер."""
+    if not message:
+        return None
+
+    text = message.text or message.caption or ""
+    patterns = (
+        r"\(id:\s*(\d+)\)",
+        r"\bid\s+(\d+)\b",
+        r"id:\s*(\d+)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            return int(match.group(1))
+    return None
+
+
 # --------------------------------------------------------------------------- #
 # Хэндлеры
 # --------------------------------------------------------------------------- #
 
 def create_dispatcher(manager_chat_id: Optional[int]) -> Dispatcher:
     dp = Dispatcher()
+    manager_reply_targets: Dict[int, int] = {}
 
     @dp.message(CommandStart())
     async def on_start(message: Message, command: CommandObject):
@@ -123,25 +144,66 @@ def create_dispatcher(manager_chat_id: Optional[int]) -> Dispatcher:
         # 2) Менеджеру — уведомление (если настроен chat_id)
         if manager_chat_id:
             try:
-                await message.bot.send_message(
+                manager_message = await message.bot.send_message(
                     manager_chat_id,
                     build_manager_message(payload, message),
                 )
+                manager_reply_targets[manager_message.message_id] = message.from_user.id
             except Exception as exc:  # pragma: no cover
                 logger.exception("Не удалось отправить уведомление менеджеру: %s", exc)
 
+    if manager_chat_id:
+        @dp.message(F.chat.id == manager_chat_id, F.reply_to_message)
+        async def on_manager_reply(message: Message):
+            replied_message_id = message.reply_to_message.message_id
+            target_user_id = manager_reply_targets.get(replied_message_id)
+            if not target_user_id:
+                target_user_id = extract_user_id_from_manager_message(message.reply_to_message)
+
+            if not target_user_id:
+                await message.answer(
+                    "Не нашёл клиента для ответа. Ответьте именно на сообщение заявки "
+                    "или на пересланное ботом сообщение клиента."
+                )
+                return
+
+            try:
+                if message.text:
+                    await message.bot.send_message(
+                        target_user_id,
+                        f"<b>Сообщение от менеджера:</b>\n\n{html.escape(message.text)}",
+                    )
+                else:
+                    await message.bot.copy_message(
+                        chat_id=target_user_id,
+                        from_chat_id=message.chat.id,
+                        message_id=message.message_id,
+                    )
+                await message.answer("Ответ отправлен клиенту.")
+            except Exception as exc:  # pragma: no cover
+                logger.exception("Не удалось отправить ответ клиенту: %s", exc)
+                await message.answer("Не удалось отправить ответ клиенту. Проверьте логи бота.")
+
     @dp.message(F.text)
     async def on_any_text(message: Message):
+        if manager_chat_id and message.chat.id == manager_chat_id:
+            await message.answer(
+                "Чтобы ответить клиенту, нажмите «Ответить» на сообщении заявки "
+                "или на сообщении клиента, которое переслал бот."
+            )
+            return
+
         await message.answer(
             "Спасибо за сообщение! Менеджер ответит в ближайшее время."
         )
         if manager_chat_id and message.from_user.id != manager_chat_id:
             try:
-                await message.bot.send_message(
+                manager_message = await message.bot.send_message(
                     manager_chat_id,
                     f"💬 Сообщение от @{message.from_user.username or '—'} "
                     f"(id {message.from_user.id}):\n\n{message.text}",
                 )
+                manager_reply_targets[manager_message.message_id] = message.from_user.id
             except Exception:  # pragma: no cover
                 logger.exception("Не удалось переслать сообщение менеджеру")
 
@@ -171,6 +233,8 @@ async def run_bot() -> None:
 
     # Прокси для доступа к Telegram API (если заблокирован)
     proxy_url = os.getenv("TELEGRAM_API_PROXY")
+    if proxy_url:
+        logger.info("Telegram API будет использовать прокси: %s", proxy_url)
     session = AiohttpSession(proxy=proxy_url) if proxy_url else None
 
     bot = Bot(

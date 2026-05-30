@@ -147,7 +147,15 @@
     <div v-if="!isNew && room.photos" class="photo-section">
       <h4>Фотографии номера</h4>
       <div class="photo-grid">
-        <div v-for="photo in room.photos" :key="photo.id" class="photo-card">
+        <div
+          v-for="photo in sortedPhotos"
+          :key="photo.id"
+          class="photo-card"
+          draggable="true"
+          @dragstart="startPhotoDrag(photo)"
+          @dragover.prevent
+          @drop="dropPhoto(photo)"
+        >
           <img :src="getPhotoUrl(photo.url)" class="photo-preview" :alt="room.title">
           <div class="photo-controls">
             <button
@@ -181,7 +189,7 @@
 import { API_BASE_URL } from '@/api';
 export default {
   name: 'RoomEditor',
-  emits: ['submit', 'cancel', 'toggle-amenity-form', 'toggle-bed-form', 'toggle-amenity', 'toggle-bed', 'add-amenity', 'add-bed', 'upload-photos', 'update-form', 'delete-amenity', 'delete-bed', 'set-main-photo', 'delete-photo', 'photo-upload'],
+  emits: ['submit', 'cancel', 'toggle-amenity-form', 'toggle-bed-form', 'toggle-amenity', 'toggle-bed', 'add-amenity', 'add-bed', 'upload-photos', 'update-form', 'delete-amenity', 'delete-bed', 'set-main-photo', 'delete-photo', 'photo-upload', 'reorder-photos'],
   props: {
     room: { type: Object, default: null },
     isNew: { type: Boolean, default: false },
@@ -207,7 +215,8 @@ export default {
       newAmenityName: '',
       newAmenityIcon: null,
       newBedName: '',
-      newBedIcon: null
+      newBedIcon: null,
+      draggedPhoto: null
     }
   },
   watch: {
@@ -237,6 +246,12 @@ export default {
   computed: {
     hasFiles() {
       return this.fileCount > 0;
+    },
+    sortedPhotos() {
+      return [...(this.room?.photos || [])].sort((a, b) => {
+        const orderDiff = (a.sort_order || 0) - (b.sort_order || 0);
+        return orderDiff || a.id - b.id;
+      });
     }
   },
   methods: {
@@ -259,6 +274,19 @@ export default {
     },
     onBedIcon(e) {
       this.newBedIcon = e.target.files[0];
+    },
+    startPhotoDrag(photo) {
+      this.draggedPhoto = photo;
+    },
+    dropPhoto(targetPhoto) {
+      if (!this.draggedPhoto || this.draggedPhoto.id === targetPhoto.id) return;
+      const photos = [...this.sortedPhotos];
+      const fromIndex = photos.findIndex(photo => photo.id === this.draggedPhoto.id);
+      const toIndex = photos.findIndex(photo => photo.id === targetPhoto.id);
+      const [moved] = photos.splice(fromIndex, 1);
+      photos.splice(toIndex, 0, moved);
+      this.draggedPhoto = null;
+      this.$emit('reorder-photos', photos);
     }
   },
 }
@@ -534,6 +562,12 @@ export default {
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+  cursor: grab;
+  background: var(--color-gray-100);
+}
+
+.photo-card:active {
+  cursor: grabbing;
 }
 
 .photo-preview {

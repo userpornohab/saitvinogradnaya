@@ -36,7 +36,7 @@
                 :style="{ transform: `translateX(${-currentPhotoIndex[room.id] * 100}%)` }"
               >
                 <div 
-                  v-for="(photo, idx) in room.photos.slice(0, 4)" 
+                  v-for="(photo, idx) in sortedRoomPhotos(room).slice(0, 4)" 
                   :key="idx" 
                   class="slide"
                 >
@@ -51,20 +51,19 @@
 
             <div class="convenience">
               <div class="convenience_row_top">
-                <div class="flex_icons">
-                  <img  class="icon-pad" src="@/assets/icons/user.svg" alt="Назад">
+                <div class="room-feature-pill">
+                  <img class="icon-pad" src="@/assets/icons/user.svg" alt="">
                   <div>{{ room.max_guests }} чел.</div>
                 </div>
-                  <div>
-                    <img class="icon-pad" src="@/assets/icons/wifi.svg" alt="Назад">
+                  <div class="room-feature-pill room-feature-pill--icon">
+                    <img class="icon-pad" src="@/assets/icons/wifi.svg" alt="">
                   </div>
               </div>
               <div class="convenience_row_bot">
-                  <img class="icon-pad" src="@/assets/icons/bed.svg" alt="Назад">
-                  <div style="display: flex; gap: 6px;" >{{ room.bed_options.length }} 
-                    <div v-if="room.bed_options.length <= 1">кровать</div>
-                    <div v-else>кровати</div>
-                  </div>
+                <div class="room-feature-pill">
+                  <img class="icon-pad" src="@/assets/icons/bed.svg" alt="">
+                  <span>{{ room.bed_options.length }} {{ room.bed_options.length <= 1 ? 'кровать' : 'кровати' }}</span>
+                </div>
               </div>
             </div>
             
@@ -79,7 +78,7 @@
               
               <div class="slider-dots">
                 <span 
-                  v-for="(photo, idx) in room.photos.slice(0, 4)" 
+                  v-for="(photo, idx) in sortedRoomPhotos(room).slice(0, 4)" 
                   :key="idx"
                   class="dot"
                   :class="{ active: currentPhotoIndex[room.id] === idx }"
@@ -196,6 +195,8 @@
 <script>
 import { API_BASE_URL } from '@/api';
 import PhotoModal from './PhotoModal.vue';
+import { getRoomPath } from '@/utils/seo';
+import { trackEvent } from '@/utils/analytics';
 
 export default {
   components: {
@@ -247,8 +248,16 @@ export default {
     getPhotoUrl(url) {
       return `${API_BASE_URL}${url}`;
     },
+    sortedRoomPhotos(room) {
+      return [...(room.photos || [])].sort((a, b) => {
+        const orderDiff = (a.sort_order || 0) - (b.sort_order || 0);
+        return orderDiff || a.id - b.id;
+      });
+    },
     goToRoomDetail(id) {
+      const room = this.rooms.find(item => item.id === id);
       const queryParams = {};
+      trackEvent('room_click', { roomId: id });
       
       if (this.url_data) {
         queryParams.start = this.url_data.start;
@@ -257,8 +266,7 @@ export default {
       }
       
       this.$router.push({
-        name: 'RoomDetail',
-        params: { id },
+        path: room ? getRoomPath(room) : `/room=${id}`,
         query: queryParams
       });
     },
@@ -266,7 +274,8 @@ export default {
       if (this.currentPhotoIndex[roomId] === undefined) {
         const room = this.rooms.find(r => r.id === roomId);
         if (room) {
-          const mainPhotoIndex = room.photos.findIndex(p => p.is_main);
+          const photos = this.sortedRoomPhotos(room);
+          const mainPhotoIndex = photos.findIndex(p => p.is_main);
           this.currentPhotoIndex[roomId] = mainPhotoIndex !== -1 ? mainPhotoIndex : 0;
         }
       }
@@ -506,10 +515,10 @@ export default {
 }
 
 .icon-pad {
-  width: 40px;
-
+  width: 16px;
+  height: 16px;
   filter: invert(100%);
-  padding: 0 10px;
+  padding: 0;
 }
 
 .room-header {
@@ -532,13 +541,33 @@ export default {
 
 }
 
-.flex_icons {
-  
+.flex_icons,
+.room-feature-pill {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 6px;
   color: white;
+}
+
+.room-feature-pill {
+  align-self: flex-start;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+
+.room-feature-pill--icon {
+  width: 34px;
+  height: 30px;
+  padding: 0;
 }
 
 .price-range {
@@ -551,18 +580,20 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  left: 14px;
+  right: 14px;
   position: absolute;
-  top: 20px;
+  top: 14px;
 }
 
 .convenience_row_bot {
   align-items: center;
   color: white;
-  width: 100%;
+  left: 14px;
+  right: 14px;
   display: flex;
   position: absolute;
-  bottom: 20px;
+  bottom: 14px;
 }
 
 .convenience{
@@ -636,7 +667,6 @@ export default {
   gap: 6px;
   padding: 4px 8px;
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.3);
 }
 
 .dot {

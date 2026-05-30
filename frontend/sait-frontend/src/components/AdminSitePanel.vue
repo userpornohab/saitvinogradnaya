@@ -20,25 +20,48 @@
       </div>
     </section>
 
-    <!-- Фотографии двора -->
+    <!-- Фотографии территории -->
     <section class="section-card">
       <div class="section-header">
-        <h2>Фотографии двора</h2>
+        <h2>Фотографии территории</h2>
         <button @click="showPhotoUpload = true" class="btn-add">Добавить фото</button>
       </div>
       
       <div class="photo-management">
-        <div class="photo-grid">
-          <div v-for="photo in courtyardPhotos" :key="photo.id" class="photo-card">
-            <img :src="getFullUrl(photo.url)" class="photo-preview">
-            <div class="photo-controls">
-              <button 
-                @click="deleteCourtyardPhoto(photo.id)"
-                title="Удалить"
-                class="delete-btn"
-              >
-                ×
-              </button>
+        <div
+          v-for="group in territoryCategories"
+          :key="group.value"
+          class="photo-group"
+        >
+          <div class="photo-group-header">
+            <h3>{{ group.label }}</h3>
+            <span>{{ groupedCourtyardPhotos[group.value]?.length || 0 }} фото</span>
+          </div>
+
+          <div
+            class="photo-grid"
+            @dragover.prevent
+            @drop="dropPhotoIntoCategory(group.value)"
+          >
+            <div
+              v-for="photo in groupedCourtyardPhotos[group.value]"
+              :key="photo.id"
+              class="photo-card"
+              draggable="true"
+              @dragstart="startPhotoDrag(photo)"
+              @dragover.prevent
+              @drop.stop="dropPhoto(photo, group.value)"
+            >
+              <img :src="getFullUrl(photo.url)" class="photo-preview">
+              <div class="photo-controls">
+                <button 
+                  @click="deleteCourtyardPhoto(photo.id)"
+                  title="Удалить"
+                  class="delete-btn"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -115,8 +138,16 @@
     <!-- Добавление фото двора -->
     <div v-if="showPhotoUpload" class="modal-overlay">
       <div class="modal-content">
-        <h3>Добавить фотографии двора</h3>
+        <h3>Добавить фотографии территории</h3>
         <form @submit.prevent="addCourtyardPhotos">
+          <div class="form-group">
+            <label>Группа:</label>
+            <select v-model="selectedCourtyardCategory">
+              <option v-for="category in territoryCategories" :key="category.value" :value="category.value">
+                {{ category.label }}
+              </option>
+            </select>
+          </div>
           <div class="form-group">
             <label>Выберите фото (можно несколько):</label>
             <input 
@@ -194,7 +225,7 @@
 </template>
 
 <script>
-import { ref, onMounted, reactive } from 'vue';
+import { computed, ref, onMounted, reactive } from 'vue';
 import api, { API_BASE_URL } from '@/api';
 
 import AdminHeader  from './AdminHeader.vue';
@@ -225,11 +256,42 @@ export default {
     // Файлы
     const mainPhotoFile = ref(null);
     const selectedCourtyardFiles = ref([]);
+    const selectedCourtyardCategory = ref('yard');
     const testimonialPhotoFile = ref(null);
+    const draggedPhoto = ref(null);
     
     // Состояния редактирования
     const editingTestimonial = ref(null);
     const editingFaq = ref(null);
+    const territoryCategories = [
+      { value: 'yard', label: 'Двор' },
+      { value: 'kitchen', label: 'Кухня' },
+      { value: 'rest', label: 'Зона отдыха' },
+    ];
+
+    const sortCourtyardPhotos = (photos) => [...photos].sort((a, b) => {
+      const orderDiff = (a.sort_order || 0) - (b.sort_order || 0);
+      return orderDiff || a.id - b.id;
+    });
+
+    const groupedCourtyardPhotos = computed(() => {
+      const groups = territoryCategories.reduce((acc, category) => {
+        acc[category.value] = [];
+        return acc;
+      }, {});
+
+      courtyardPhotos.value.forEach(photo => {
+        const category = photo.category || 'yard';
+        if (!groups[category]) groups[category] = [];
+        groups[category].push(photo);
+      });
+
+      Object.keys(groups).forEach(category => {
+        groups[category] = sortCourtyardPhotos(groups[category]);
+      });
+
+      return groups;
+    });
 
     const API_BASE = '/site';
 
@@ -252,7 +314,7 @@ export default {
             });
             
             // Сохраняем связанные данные
-            courtyardPhotos.value = data.courtyard_photos || [];
+            courtyardPhotos.value = sortCourtyardPhotos(data.courtyard_photos || []);
             testimonials.value = data.testimonials || [];
             faqs.value = data.faqs || [];
             
@@ -298,6 +360,7 @@ export default {
     const saveSiteInfo = async () => {
       try {
         const formData = new FormData();
+        formData.append('category', selectedCourtyardCategory.value);
         
         if (mainPhotoFile.value) {
           formData.append('main_photo_file', mainPhotoFile.value);
@@ -364,9 +427,74 @@ export default {
         
         showPhotoUpload.value = false;
         selectedCourtyardFiles.value = [];
+        selectedCourtyardCategory.value = 'yard';
+        loadData();
       } catch (error) {
         console.error('Ошибка добавления фото:', error);
         alert('Ошибка при загрузке фото: ' + (error.response?.data?.detail || error.message));
+      }
+    };
+
+    const persistPhotoOrder = async (photos) => {
+      const payload = photos.map((photo, index) => ({
+        id: photo.id,
+        category: photo.category || 'yard',
+        sort_order: index + 1
+      }));
+      await api.patch(`${API_BASE}/courtyard-photos/order`, payload, authHeaders());
+      await loadData();
+    };
+
+    const startPhotoDrag = (photo) => {
+      draggedPhoto.value = photo;
+    };
+
+    const dropPhoto = async (targetPhoto, targetCategory) => {
+      const sourcePhoto = draggedPhoto.value;
+      draggedPhoto.value = null;
+      if (!sourcePhoto || sourcePhoto.id === targetPhoto.id) return;
+
+      const nextPhotos = courtyardPhotos.value.map(photo => (
+        photo.id === sourcePhoto.id
+          ? { ...photo, category: targetCategory }
+          : { ...photo }
+      ));
+
+      const group = sortCourtyardPhotos(nextPhotos.filter(photo => (photo.category || 'yard') === targetCategory));
+      const fromIndex = group.findIndex(photo => photo.id === sourcePhoto.id);
+      const toIndex = group.findIndex(photo => photo.id === targetPhoto.id);
+      const [moved] = group.splice(fromIndex, 1);
+      group.splice(toIndex, 0, moved);
+
+      const otherPhotos = nextPhotos.filter(photo => (photo.category || 'yard') !== targetCategory);
+      courtyardPhotos.value = [...otherPhotos, ...group];
+
+      try {
+        await persistPhotoOrder(group);
+      } catch (error) {
+        console.error('Ошибка сохранения порядка фото:', error);
+        alert('Не удалось сохранить порядок фото');
+        loadData();
+      }
+    };
+
+    const dropPhotoIntoCategory = async (targetCategory) => {
+      const sourcePhoto = draggedPhoto.value;
+      draggedPhoto.value = null;
+      if (!sourcePhoto) return;
+
+      const group = sortCourtyardPhotos(
+        courtyardPhotos.value
+          .filter(photo => photo.id === sourcePhoto.id || (photo.category || 'yard') === targetCategory)
+          .map(photo => photo.id === sourcePhoto.id ? { ...photo, category: targetCategory } : { ...photo })
+      );
+
+      try {
+        await persistPhotoOrder(group);
+      } catch (error) {
+        console.error('Ошибка сохранения порядка фото:', error);
+        alert('Не удалось сохранить порядок фото');
+        loadData();
       }
     };
 
@@ -518,6 +646,9 @@ export default {
       testimonials,
       faqs,
       selectedCourtyardFiles,
+      selectedCourtyardCategory,
+      territoryCategories,
+      groupedCourtyardPhotos,
       
       // Модальные окна
       showSiteInfoModal,
@@ -544,6 +675,9 @@ export default {
       handleCourtyardPhotoChange,
       removeCourtyardFile,
       deleteCourtyardPhoto,
+      startPhotoDrag,
+      dropPhoto,
+      dropPhotoIntoCategory,
       openTestimonialModal,
       saveTestimonial,
       handleTestimonialPhotoChange,
@@ -678,6 +812,7 @@ h2 {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 15px;
   margin-top: 15px;
+  min-height: 70px;
 }
 
 .photo-card {
@@ -686,6 +821,45 @@ h2 {
   overflow: hidden;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
   aspect-ratio: 4/3;
+  cursor: grab;
+  background: #f4f6f8;
+}
+
+.photo-card:active {
+  cursor: grabbing;
+}
+
+.photo-group {
+  margin-bottom: 28px;
+}
+
+.photo-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eef0f2;
+}
+
+.photo-group-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.photo-group-header span {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d7dde3;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 0.9rem;
 }
 
 .photo-controls {

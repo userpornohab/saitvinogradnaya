@@ -31,8 +31,12 @@ export default {
   },
   computed: {
     mainPhoto() {
-      const main = this.room.photos.find(p => p.is_main);
-      const photo = main || this.room.photos[0];
+      const photos = [...(this.room.photos || [])].sort((a, b) => {
+        const orderDiff = (a.sort_order || 0) - (b.sort_order || 0);
+        return orderDiff || a.id - b.id;
+      });
+      const main = photos.find(p => p.is_main);
+      const photo = main || photos[0];
       return photo ? `${API_BASE_URL}${photo.url}` : '';
     }
   }
@@ -42,8 +46,8 @@ export default {
 <style scoped>
 .room-card {
   display: flex;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
   background: var(--color-gray-50);
   border-radius: var(--radius-md);
   border: 2px solid transparent;
@@ -64,8 +68,8 @@ export default {
 }
 
 .room-thumb {
-  width: 80px;
-  height: 60px;
+  width: 68px;
+  height: 54px;
   object-fit: cover;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
@@ -73,9 +77,10 @@ export default {
 
 .room-info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
 }
 
 .room-header {
@@ -86,15 +91,19 @@ export default {
 
 .room-header h4 {
   margin: 0;
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-gray-900);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-delete {
   background: none;
   border: none;
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   cursor: pointer;
   opacity: 0.6;
   transition: opacity var(--transition-fast);
@@ -110,8 +119,8 @@ export default {
 }
 
 .room-actions button {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -120,7 +129,7 @@ export default {
   border: 1px solid var(--color-gray-300);
   cursor: pointer;
   transition: all var(--transition-fast);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
 }
 
 .room-actions button:hover {

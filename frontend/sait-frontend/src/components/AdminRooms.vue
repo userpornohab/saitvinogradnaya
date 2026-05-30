@@ -49,6 +49,7 @@
       @delete-photo="deletePhoto"
       @photo-upload="handlePhotoUpload"
       @upload-photos="uploadPhoto"
+      @reorder-photos="reorderRoomPhotos"
     />
 
     <!-- Управление ценами -->
@@ -59,6 +60,7 @@
       @close="closePriceManagement"
       @reset="resetDataForm"
       @create-price="createPricePeriod"
+      @update-price="updatePricePeriod"
       @copy-next-year="copyPricePeriodsToNextYear"
       @delete-price="deletePricePeriod"
     />
@@ -206,6 +208,18 @@ export default {
         this.showSuccess('Период удален');
       } catch (error) {
         this.handleApiError(error, 'Ошибка удаления периода');
+      }
+    },
+    async updatePricePeriod({ id, data }) {
+      try {
+        const response = await api.put(`/price-periods/${id}`, data, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+        });
+        const index = this.selectedPriceRoom.price_periods.findIndex(p => p.id === id);
+        if (index !== -1) this.selectedPriceRoom.price_periods.splice(index, 1, response.data);
+        this.showSuccess('Ценовой период обновлен');
+      } catch (error) {
+        this.handleApiError(error, 'Ошибка обновления периода');
       }
     },
     async copyPricePeriodsToNextYear() {
@@ -455,6 +469,30 @@ export default {
         this.showSuccess('Главное фото установлено');
       } catch (error) { this.handleApiError(error, 'Ошибка установки главного фото'); }
     },
+    async reorderRoomPhotos(photos) {
+      if (!this.selectedRoom) return;
+      const orderedPhotos = photos.map((photo, index) => ({
+        ...photo,
+        sort_order: index + 1
+      }));
+      this.selectedRoom.photos = orderedPhotos;
+      const idx = this.rooms.findIndex(r => r.id === this.selectedRoom.id);
+      if (idx !== -1) this.rooms.splice(idx, 1, { ...this.rooms[idx], photos: orderedPhotos });
+
+      try {
+        await api.patch(
+          `/rooms/${this.selectedRoom.id}/photos/order`,
+          orderedPhotos.map(photo => ({ id: photo.id, sort_order: photo.sort_order })),
+          { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }
+        );
+        this.showSuccess('Порядок фото сохранен');
+      } catch (error) {
+        this.handleApiError(error, 'Ошибка сохранения порядка фото');
+        await this.fetchData();
+        const freshRoom = this.rooms.find(room => room.id === this.selectedRoom.id);
+        if (freshRoom) this.selectedRoom = freshRoom;
+      }
+    },
     async deletePhoto(photo) {
       if (!confirm('Удалить фото?')) return;
       try {
@@ -567,7 +605,11 @@ export default {
 }
 .btn-primary:hover { background: var(--color-primary-dark); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 
-.room-list { display: grid; gap: var(--spacing-md); }
+.room-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
 
 .notification {
   position: fixed; bottom: var(--spacing-xl); right: var(--spacing-xl);
@@ -590,5 +632,10 @@ export default {
   .admin-panel { padding: var(--spacing-md); }
   .section-card { padding: var(--spacing-md); }
   .rooms-header { flex-direction: column; gap: var(--spacing-md); align-items: flex-start; }
+  .room-list { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .room-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Body
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import func
 from datetime import datetime, timedelta
 from pathlib import Path
 import shutil
@@ -7,8 +8,9 @@ import os
 from typing import List
 from database.database import get_db
 from models.room import Room, RoomPhoto, PricePeriod, Amenity, RoomAmenity, Booking, RoomBedOption, BedOption
-from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomPhotoResponse, RoomFilter, RoomUpdate, RoomBase
+from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomPhotoResponse, RoomFilter, RoomUpdate, RoomBase, RoomPhotoOrderItem
 from auth.dependencies import check_superuser
+from utils.image_upload import save_upload_image
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
@@ -62,20 +64,17 @@ async def upload_photos(
     
     try:
         uploaded_photos = []
-        for file in files:
-            if file.content_type not in ["image/jpeg", "image/png"]:
-                continue
-
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            filename = f"{timestamp}_{file.filename}"
-            filepath = Path("static/uploads") / filename
-
-            with open(filepath, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-
+        max_order = db.query(func.max(RoomPhoto.sort_order)).filter(RoomPhoto.room_id == room_id).scalar() or 0
+        for index, file in enumerate(files, start=1):
+            photo_url = await save_upload_image(
+                file=file,
+                upload_dir=Path("static/uploads"),
+                prefix="room"
+            )
             photo = RoomPhoto(
-                url=f"/static/uploads/{filename}",
+                url=photo_url,
                 is_main=False,  # Все новые фото по умолчанию не главные
+                sort_order=max_order + index,
                 room_id=room_id
             )
             db.add(photo)
@@ -90,6 +89,9 @@ async def upload_photos(
             
         return uploaded_photos
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(500, f"Error uploading photos: {str(e)}")
@@ -98,7 +100,7 @@ async def upload_photos(
 def get_room(room_id: int, db: Session = Depends(get_db)):
     room = db.query(Room)\
         .options(
-            joinedload(Room.photos),
+            selectinload(Room.photos),
             joinedload(Room.price_periods),
             joinedload(Room.amenities)
         )\
@@ -107,6 +109,7 @@ def get_room(room_id: int, db: Session = Depends(get_db)):
     
     if not room:
         raise HTTPException(404, "Room not found")
+    room.photos.sort(key=lambda photo: (photo.sort_order or 0, photo.id))
     return room
 
 @router.delete("/{room_id}", response_model=RoomResponse, dependencies=[Depends(check_superuser)])
@@ -121,7 +124,10 @@ def delete_room(room_id: int, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[RoomResponse])
 def get_all_rooms(db: Session = Depends(get_db)):
-    return db.query(Room).all()
+    rooms = db.query(Room).options(selectinload(Room.photos)).all()
+    for room in rooms:
+        room.photos.sort(key=lambda photo: (photo.sort_order or 0, photo.id))
+    return rooms
 
 
 @router.get("/admin/", response_model=List[RoomBase])
@@ -234,6 +240,32 @@ def update_room(
     db.commit()
     db.refresh(db_room)
     return db_room
+
+@router.patch("/{room_id}/photos/order", response_model=List[RoomPhotoResponse], dependencies=[Depends(check_superuser)])
+def reorder_room_photos(
+    room_id: int,
+    items: List[RoomPhotoOrderItem] = Body(...),
+    db: Session = Depends(get_db)
+):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(404, "Room not found")
+
+    updated = []
+    for item in items:
+        photo = db.query(RoomPhoto).filter(
+            RoomPhoto.id == item.id,
+            RoomPhoto.room_id == room_id
+        ).first()
+        if not photo:
+            continue
+        photo.sort_order = item.sort_order
+        updated.append(photo)
+
+    db.commit()
+    for photo in updated:
+        db.refresh(photo)
+    return sorted(updated, key=lambda photo: (photo.sort_order or 0, photo.id))
 
 @router.patch("/{room_id}/photos/{photo_id}", dependencies=[Depends(check_superuser)])
 def set_main_photo(

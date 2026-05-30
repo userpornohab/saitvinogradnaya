@@ -1,6 +1,7 @@
 from typing import Optional,List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from database.database import get_db
 from models.room import SiteInfo, CourtyardPhoto, Testimonial, FAQ
@@ -11,15 +12,18 @@ from schemas.room import (
     FAQCreate,
     SiteInfoBase,
     FAQResponse,
-    FAQBase
+    FAQBase,
+    CourtyardPhotoOrderItem,
+    CourtyardPhotoUpdate
 )
 from auth.dependencies import check_superuser
 from pathlib import Path
-import shutil
 import os
-from datetime import datetime
+from utils.image_upload import save_upload_image
 
 router = APIRouter(prefix="/site", tags=["site"])
+
+TERRITORY_CATEGORIES = {"yard", "kitchen", "rest"}
 
 def get_or_create_site_info(db: Session):
     site_info = db.query(SiteInfo).filter(SiteInfo.id == 1).first()
@@ -33,6 +37,7 @@ def get_or_create_site_info(db: Session):
 @router.get("/", response_model=SiteInfoResponse)
 def get_site_info(db: Session = Depends(get_db)):
     site_info = get_or_create_site_info(db)
+    site_info.courtyard_photos.sort(key=lambda photo: (photo.category or "yard", photo.sort_order or 0, photo.id))
     return site_info
 
 @router.put("/", response_model=SiteInfoBase, dependencies=[Depends(check_superuser)])
@@ -49,22 +54,15 @@ async def update_site_info(
     if main_photo_file:
         # Удаляем старое фото если существует
         if site_info.main_photo:
-            old_path = Path("static") / site_info.main_photo.split("/")[-1]
+            old_path = Path("static/uploads") / os.path.basename(site_info.main_photo)
             if old_path.exists():
                 old_path.unlink()
         
-        # Сохраняем новое фото
-        upload_dir = Path("static/uploads")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f"main_photo_{timestamp}_{main_photo_file.filename}"
-        filepath = upload_dir / filename
-        
-        with filepath.open("wb") as buffer:
-            content = await main_photo_file.read()
-            buffer.write(content)
-        
-        site_info.main_photo = f"/static/uploads/{filename}"
+        site_info.main_photo = await save_upload_image(
+            file=main_photo_file,
+            upload_dir=Path("static/uploads"),
+            prefix="main_photo"
+        )
     
     db.commit()
     db.refresh(site_info)
@@ -73,8 +71,12 @@ async def update_site_info(
 @router.post("/courtyard-photos", response_model=List[CourtyardPhotoResponse], dependencies=[Depends(check_superuser)])
 async def add_courtyard_photos(
     files: List[UploadFile] = File(...),
+    category: str = Form("yard"),
     db: Session = Depends(get_db)
 ):
+    if category not in TERRITORY_CATEGORIES:
+        raise HTTPException(422, "Unknown territory category")
+
     site_info = get_or_create_site_info(db)
     upload_dir = Path("static/uploads")
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -84,22 +86,24 @@ async def add_courtyard_photos(
     errors = []
 
     try:
-        for file in files:
-            try:
-                # Генерируем уникальное имя файла
-                timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-                filename = f"courtyard_{timestamp}_{file.filename}"
-                filepath = upload_dir / filename
+        max_order = db.query(func.max(CourtyardPhoto.sort_order)).filter(
+            CourtyardPhoto.category == category
+        ).scalar() or 0
 
-                # Сохраняем файл
-                with filepath.open("wb") as buffer:
-                    content = await file.read()
-                    buffer.write(content)
-                saved_files.append(filepath)
+        for index, file in enumerate(files, start=1):
+            try:
+                photo_url = await save_upload_image(
+                    file=file,
+                    upload_dir=upload_dir,
+                    prefix="courtyard"
+                )
+                saved_files.append(Path("static/uploads") / os.path.basename(photo_url))
 
                 # Создаем запись в БД
                 photo = CourtyardPhoto(
-                    url=f"/static/uploads/{filename}", 
+                    url=photo_url,
+                    category=category,
+                    sort_order=max_order + index,
                     site_info_id=site_info.id
                 )
                 db.add(photo)
@@ -143,6 +147,50 @@ async def add_courtyard_photos(
         for file in files:
             await file.close()
 
+@router.patch("/courtyard-photos/order", response_model=List[CourtyardPhotoResponse], dependencies=[Depends(check_superuser)])
+def reorder_courtyard_photos(
+    items: List[CourtyardPhotoOrderItem] = Body(...),
+    db: Session = Depends(get_db)
+):
+    updated = []
+    for item in items:
+        photo = db.query(CourtyardPhoto).filter(CourtyardPhoto.id == item.id).first()
+        if not photo:
+            continue
+        if item.category is not None:
+            if item.category not in TERRITORY_CATEGORIES:
+                raise HTTPException(422, "Unknown territory category")
+            photo.category = item.category
+        photo.sort_order = item.sort_order
+        updated.append(photo)
+
+    db.commit()
+    for photo in updated:
+        db.refresh(photo)
+    return sorted(updated, key=lambda photo: (photo.category or "yard", photo.sort_order or 0, photo.id))
+
+@router.patch("/courtyard-photos/{photo_id}", response_model=CourtyardPhotoResponse, dependencies=[Depends(check_superuser)])
+def update_courtyard_photo(
+    photo_id: int,
+    update_data: CourtyardPhotoUpdate,
+    db: Session = Depends(get_db)
+):
+    photo = db.query(CourtyardPhoto).filter(CourtyardPhoto.id == photo_id).first()
+    if not photo:
+        raise HTTPException(404, "Photo not found")
+
+    if update_data.category is not None:
+        if update_data.category not in TERRITORY_CATEGORIES:
+            raise HTTPException(422, "Unknown territory category")
+        photo.category = update_data.category
+
+    if update_data.sort_order is not None:
+        photo.sort_order = update_data.sort_order
+
+    db.commit()
+    db.refresh(photo)
+    return photo
+
 @router.delete("/courtyard-photos/{photo_id}", dependencies=[Depends(check_superuser)])
 def delete_courtyard_photo(
     photo_id: int,
@@ -171,21 +219,14 @@ async def add_testimonial(
 ):
     site_info = get_or_create_site_info(db)
     
-    # Сохраняем иконку
-    upload_dir = Path("static/uploads")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f"testimonial_icon_{timestamp}_{author_icon_file.filename}"
-    filepath = upload_dir / filename
-    
-    with filepath.open("wb") as buffer:
-        content = await author_icon_file.read()
-        buffer.write(content)
-    
     testimonial = Testimonial(
         author_name=author_name,
         comment=comment,
-        author_icon_url=f"/static/uploads/{filename}",
+        author_icon_url=await save_upload_image(
+            file=author_icon_file,
+            upload_dir=Path("static/uploads"),
+            prefix="testimonial_icon"
+        ),
         site_info_id=site_info.id
     )
     
@@ -215,21 +256,15 @@ async def update_testimonial(
     if author_icon_file:
         # Удаляем старую иконку
         if testimonial.author_icon_url:
-            old_path = Path("static") / testimonial.author_icon_url.split("/")[-1]
+            old_path = Path("static/uploads") / os.path.basename(testimonial.author_icon_url)
             if old_path.exists():
                 old_path.unlink()
         
-        # Сохраняем новую иконку
-        upload_dir = Path("static/uploads")
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f"testimonial_icon_{timestamp}_{author_icon_file.filename}"
-        filepath = upload_dir / filename
-        
-        with filepath.open("wb") as buffer:
-            content = await author_icon_file.read()
-            buffer.write(content)
-        
-        testimonial.author_icon_url = f"/static/uploads/{filename}"
+        testimonial.author_icon_url = await save_upload_image(
+            file=author_icon_file,
+            upload_dir=Path("static/uploads"),
+            prefix="testimonial_icon"
+        )
     
     db.commit()
     db.refresh(testimonial)

@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-container" ref="calendarRef">
+  <div class="calendar-container" :class="{ 'calendar-container--open': showCalendar }" ref="calendarRef">
     <div class="inputs">
       <div
         class="field field--date"
@@ -65,7 +65,9 @@
         <span class="find-text">{{ isLoading ? 'Поиск...' : 'Найти' }}</span>
       </button>
     </div>
-    
+  </div>
+
+  <Teleport to="body">
     <div 
       class="calendars" 
       ref="calendarsRef"
@@ -74,6 +76,7 @@
         fullscreen: showCalendar && isMobile,
         'calendars--above': dropDirection === 'up'
       }"
+      :style="calendarPopupStyle"
     >
       <DateRangePicker
         v-model:startDate="startDate"
@@ -84,7 +87,7 @@
         :isMobile="isMobile"             
       />
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script>
@@ -124,6 +127,7 @@ export default {
     const calendarRef = ref(null);
     const calendarsRef = ref(null);
     const dropDirection = ref('down');
+    const calendarPopupStyle = ref({});
 
     // Определение мобильного устройства
     const isMobile = ref(false);
@@ -145,6 +149,7 @@ export default {
       const isFullscreen = showCalendar.value && isMobile.value;
       document.body.style.overflow = isFullscreen ? 'hidden' : '';
       document.body.classList.toggle('calendar-fullscreen-open', isFullscreen);
+      document.body.classList.toggle('calendar-popup-open', showCalendar.value);
     });
 
     const startDateText = computed(() => startDate.value?.toLocaleDateString() || '');
@@ -224,12 +229,20 @@ export default {
     };
 
     const updateDropDirection = () => {
-      if (isMobile.value || !calendarRef.value || !calendarsRef.value) return;
+      if (isMobile.value || !calendarRef.value || !calendarsRef.value) {
+        if (isMobile.value) calendarPopupStyle.value = {};
+        return;
+      }
       const triggerRect = calendarRef.value.getBoundingClientRect();
       const popupHeight = calendarsRef.value.offsetHeight || 420;
       const spaceBelow = window.innerHeight - triggerRect.bottom;
       const spaceAbove = triggerRect.top;
-      dropDirection.value = (spaceBelow < popupHeight && spaceAbove > spaceBelow) ? 'up' : 'down';
+      const shouldOpenUp = spaceBelow < popupHeight && spaceAbove > spaceBelow;
+      dropDirection.value = shouldOpenUp ? 'up' : 'down';
+      calendarPopupStyle.value = {
+        left: `${triggerRect.left + triggerRect.width / 2}px`,
+        top: `${shouldOpenUp ? Math.max(12, triggerRect.top - popupHeight - 10) : triggerRect.bottom + 10}px`
+      };
     };
 
     watch(showCalendar, (newVal) => {
@@ -250,6 +263,9 @@ export default {
     onUnmounted(() => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
+      document.body.classList.remove('calendar-fullscreen-open');
+      document.body.classList.remove('calendar-popup-open');
+      document.body.style.overflow = '';
     });
 
     return {
@@ -270,6 +286,7 @@ export default {
       calendarsRef,
       dropDirection,
       isMobile,
+      calendarPopupStyle,
     };
   },
 };
@@ -287,6 +304,10 @@ export default {
     width: 100%;
     margin: 20px auto;
     position: relative;
+  }
+
+  .calendar-container--open {
+    z-index: 100000;
   }
 
   .inputs {
@@ -541,8 +562,8 @@ export default {
   /* Календарь popup */
   .calendars {
     pointer-events: none;
-    position: absolute;
-    top: calc(100% + 10px);
+    position: fixed;
+    top: 0;
     left: 50%;
     transform: translateX(-50%) translateY(-8px);
     width: min(720px, calc(100vw - 32px));
@@ -553,7 +574,7 @@ export default {
     box-shadow: 0 8px 28px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
     transition: opacity 0.2s ease, transform 0.2s ease;
     opacity: 0;
-    z-index: 10001;
+    z-index: 2147483000;
   }
 
   .calendars.visible {
@@ -564,8 +585,6 @@ export default {
 
   /* Открытие вверх */
   .calendars.calendars--above {
-    top: auto;
-    bottom: calc(100% + 10px);
     transform: translateX(-50%) translateY(8px);
   }
   .calendars.calendars--above.visible {
@@ -580,7 +599,7 @@ export default {
     width: 100%;
     height: 100%;
     background: white;
-    z-index: 10001;
+    z-index: 2147483000;
     overflow-y: auto;
     padding: 0 20px;
     box-sizing: border-box;

@@ -21,7 +21,7 @@
         </div>
 
         <div class="nav-links">
-          <a href="tel:+79788028912" class="nav-phone" @click="closeMobileMenu">
+          <a href="tel:+79788028912" class="nav-phone" @click="handlePhoneClick">
             <img src="@/assets/icons/phone.svg" alt="Позвонить" class="nav-phone-icon">
           </a>
           <router-link
@@ -59,13 +59,37 @@
               :href="`#${item.id}`"
               class="mobile-menu-link"
               @click.prevent="scrollToSection(item.id)"
-            >{{ item.label }}</a>
+            >
+              <span class="mobile-menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path :d="item.iconPath" />
+                </svg>
+              </span>
+              <span>{{ item.label }}</span>
+            </a>
           </template>
-          <a href="tel:+79788028912" class="mobile-menu-link" @click="closeMobileMenu">
-            <img src="@/assets/icons/phone.svg" alt="Позвонить" class="mobile-phone-icon"> +79788028912
+          <a href="tel:+79788028912" class="mobile-menu-link" @click="handlePhoneClick">
+            <span class="mobile-menu-icon" aria-hidden="true">
+              <img src="@/assets/icons/phone.svg" alt="" class="mobile-phone-icon">
+            </span>
+            <span>+79788028912</span>
           </a>
-          <router-link v-if="isAuthenticated && isAdmin" to="/admin/rooms" class="mobile-menu-link mobile-menu-link--primary" @click="closeMobileMenu">Админ-панель</router-link>
-          <button v-if="isAuthenticated" @click="handleLogout(); closeMobileMenu()" class="mobile-menu-link mobile-menu-link--btn">Выход</button>
+          <router-link v-if="isAuthenticated && isAdmin" to="/admin/rooms" class="mobile-menu-link mobile-menu-link--primary" @click="closeMobileMenu">
+            <span class="mobile-menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5" />
+              </svg>
+            </span>
+            <span>Админ-панель</span>
+          </router-link>
+          <button v-if="isAuthenticated" @click="handleLogout(); closeMobileMenu()" class="mobile-menu-link mobile-menu-link--btn">
+            <span class="mobile-menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+            </span>
+            <span>Выход</span>
+          </button>
         </div>
       </transition>
     </nav>
@@ -89,7 +113,7 @@
           <!-- Контакты -->
           <div class="footer-col">
             <h4 class="footer-heading">Контакты</h4>
-            <a href="tel:+79788028912" class="footer-contact">
+            <a href="tel:+79788028912" class="footer-contact" @click="handlePhoneClick">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
               </svg>
@@ -155,6 +179,7 @@
 
 <script>
 import api from '@/api';
+import { trackEvent } from '@/utils/analytics';
 
 export default {
   data() {
@@ -165,12 +190,12 @@ export default {
       mobileMenuOpen: false,
       isMobileScreen: window.innerWidth <= 768,
       sectionLinks: [
-        { id: 'hero',       label: 'Поиск' },
-        { id: 'about',      label: 'О нас' },
-        { id: 'rooms',      label: 'Номера' },
-        { id: 'directions', label: 'Как добраться' },
-        { id: 'faq',        label: 'Вопросы' },
-        { id: 'reviews',    label: 'Отзывы' }
+        { id: 'hero',       label: 'Поиск', iconPath: 'M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z' },
+        { id: 'about',      label: 'О нас', iconPath: 'M3 11l9-8 9 8M5 10v10h14V10M9 20v-6h6v6' },
+        { id: 'rooms',      label: 'Номера', iconPath: 'M3 7v10M3 12h18M21 17V9a3 3 0 00-3-3H6a3 3 0 00-3 3M7 12V9h5v3M12 12V9h5v3' },
+        { id: 'directions', label: 'Как добраться', iconPath: 'M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11zM12 10h.01' },
+        { id: 'faq',        label: 'Вопросы', iconPath: 'M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8zM9.5 9a2.5 2.5 0 115 0c0 2-2.5 2-2.5 4M12 17h.01' },
+        { id: 'reviews',    label: 'Отзывы', iconPath: 'M12 17.3L6.2 21l1.6-6.6L2.6 10l6.8-.5L12 3l2.6 6.5 6.8.5-5.2 4.4L17.8 21 12 17.3z' }
       ],
       notification: {
         message: '',
@@ -239,6 +264,11 @@ export default {
 
     closeMobileMenu() {
       this.mobileMenuOpen = false;
+    },
+
+    handlePhoneClick() {
+      trackEvent('phone_click');
+      this.closeMobileMenu();
     },
 
     async scrollToSection(id) {
@@ -375,7 +405,7 @@ export default {
   --nav-text:              var(--color-gray-700);
   --nav-text-hover:        var(--color-gray-900);
   --nav-link-hover-bg:     rgba(0, 0, 0, 0.05);
-  --nav-accent:            var(--color-primary);
+  --nav-accent:            #5651d8;
   --nav-mobile-menu-bg:    rgba(255, 255, 255, 0.98);
   --nav-burger-color:      var(--color-gray-900);
 
@@ -390,7 +420,7 @@ export default {
   --footer-link-hover:   #FFFFFF;
   --footer-copyright:    #767676;
   --footer-social-bg:    rgba(255, 255, 255, 0.1);
-  --footer-social-hover: var(--color-primary);
+  --footer-social-hover: #5651d8;
 
   /* --- Макет --- */
   --container-max:    1120px;
@@ -567,6 +597,9 @@ body.calendar-fullscreen-open .main-nav {
 
 .mobile-menu-link {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   padding: 0.85rem 0.75rem;
   color: var(--color-gray-900);
   font-size: 1rem;
@@ -575,33 +608,53 @@ body.calendar-fullscreen-open .main-nav {
   border-radius: var(--radius-md);
   border: none;
   background: none;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   transition: background var(--transition-fast);
   font-family: inherit;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-menu-link:hover {
   background: var(--nav-link-hover-bg);
   text-decoration: none;
-  color: var(--color-primary);
+  color: var(--nav-accent);
 }
 
 .mobile-menu-link--primary {
-  background: var(--color-primary);
+  background: var(--nav-accent);
   color: var(--color-white) !important;
   text-align: center;
 }
 
 .mobile-menu-link--primary:hover {
-  background: var(--color-primary-dark);
+  background: #4640c8;
 }
 
 .mobile-menu-link--btn {
   border: 1px solid var(--color-gray-300);
   text-align: center;
   margin-top: 0.25rem;
+}
+
+.mobile-menu-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  color: #5651d8;
+  background: rgba(198, 196, 253, 0.22);
+  border-radius: var(--radius-full);
+}
+
+.mobile-menu-icon svg,
+.mobile-menu-icon img {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .mobile-menu-enter-active,
@@ -629,17 +682,17 @@ body.calendar-fullscreen-open .main-nav {
 
 .nav-link:hover {
   background: var(--nav-link-hover-bg);
-  color: var(--color-primary);
+  color: var(--nav-accent);
   text-decoration: none;
 }
 
 .admin-link {
-  background: var(--color-primary);
+  background: var(--nav-accent);
   color: var(--color-white) !important;
 }
 
 .admin-link:hover {
-  background: var(--color-primary-dark) !important;
+  background: #4640c8 !important;
   color: var(--color-white) !important;
 }
 
@@ -656,8 +709,8 @@ body.calendar-fullscreen-open .main-nav {
 }
 
 .nav-button:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: var(--nav-accent);
+  color: var(--nav-accent);
 }
 
 .nav-phone {
@@ -681,10 +734,10 @@ body.calendar-fullscreen-open .main-nav {
 }
 
 .mobile-phone-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: #333;
-  margin-right: 8px;
+  margin-right: 0;
 }
 
 /* ======================================
@@ -819,7 +872,7 @@ body.calendar-fullscreen-open .main-nav {
 }
 
 .social-icon:hover {
-  background: var(--color-primary, #FF5A5F);
+  background: var(--footer-social-hover);
   transform: translateY(-2px);
   text-decoration: none;
   color: white;

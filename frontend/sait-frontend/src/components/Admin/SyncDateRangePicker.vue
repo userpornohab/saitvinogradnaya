@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="sync-date-range-picker">
     <div class="navigation">
       <button 
         class="nav-btn-start" 
@@ -49,7 +49,7 @@
       </button>
     </div>
 
-    <div class="calendar-grid">
+    <div class="calendar-grid" :style="calendarGridStyle">
       <div 
         class="calendar-wrapper" 
         v-for="(calendar, index) in calendars" 
@@ -92,7 +92,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const months = [
   'Январь', 'Февраль', 'Март', 'Апрель', 
@@ -129,6 +129,26 @@ export default {
     highlightPricePeriods: {
       type: Boolean,
       default: false
+    },
+    highlightedBooking: {
+      type: Object,
+      default: null
+    },
+    highlightStartDate: {
+      type: String,
+      default: null
+    },
+    highlightEndDate: {
+      type: String,
+      default: null
+    },
+    focusDate: {
+      type: String,
+      default: null
+    },
+    monthsCount: {
+      type: Number,
+      default: 3
     }
   },
   
@@ -139,6 +159,16 @@ export default {
     const currentMonth = ref(new Date().getMonth());
     const hoverEndDate = ref(null);
     const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    const applyFocusDate = (value) => {
+      if (!value) return;
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return;
+      currentYear.value = date.getFullYear();
+      currentMonth.value = date.getMonth();
+    };
+
+    watch(() => props.focusDate, applyFocusDate, { immediate: true });
 
     const bookingPeriods = computed(() => {
       const periods = [];
@@ -303,6 +333,41 @@ export default {
       });
     };
 
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      const date = value instanceof Date ? new Date(value) : new Date(value);
+      if (isNaN(date.getTime())) return null;
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+
+    const highlightedBookingRange = computed(() => {
+      const startSource = props.highlightStartDate || props.highlightedBooking?.check_in_date;
+      const endSource = props.highlightEndDate || props.highlightedBooking?.check_out_date;
+      if (!startSource || !endSource) return null;
+      const start = normalizeDate(startSource);
+      const end = normalizeDate(endSource);
+      if (!start || !end) return null;
+      return { start, end };
+    });
+
+    const isHighlightedBookingDate = (date) => {
+      const range = highlightedBookingRange.value;
+      if (!range) return false;
+      return date >= range.start && date <= range.end;
+    };
+
+    const isHighlightedBookingStart = (date) => {
+      const range = highlightedBookingRange.value;
+      return Boolean(range && date.getTime() === range.start.getTime());
+    };
+
+    const isHighlightedBookingEnd = (date) => {
+      const range = highlightedBookingRange.value;
+      if (!range) return false;
+      return date.getTime() === range.end.getTime();
+    };
+
         const hasPriceForDate = (date) => {
           if (!props.pricePeriods || props.pricePeriods.length === 0) return true;
           
@@ -319,8 +384,8 @@ export default {
       
       const currentDate = new Date(cell.date);
       currentDate.setHours(0,0,0,0);
-      const startDate = props.startDate ? new Date(props.startDate.setHours(0,0,0,0)) : null;
-      const endDate = props.endDate ? new Date(props.endDate.setHours(0,0,0,0)) : null;
+      const startDate = normalizeDate(props.startDate);
+      const endDate = normalizeDate(props.endDate);
       
       const isStart = currentDate.getTime() === startDate?.getTime();
       const isValidEnd = endDate 
@@ -354,6 +419,9 @@ export default {
       // должна быть возможность выбрать диапазон и установить цену.
       const noPrice = !hasPrice && !props.highlightPricePeriods;
       const pricedHighlight = hasPrice && props.highlightPricePeriods && (props.pricePeriods?.length > 0);
+      const isHighlighted = isHighlightedBookingDate(currentDate);
+      const isHighlightedStart = isHighlightedBookingStart(currentDate);
+      const isHighlightedEnd = isHighlightedBookingEnd(currentDate);
 
       return {
         'start-date': isStart,
@@ -364,6 +432,9 @@ export default {
         'partially-occupied': available > 0 && available < props.numberOfRooms,
         'booking-period-start': isBookingStart,
         'booking-period-end': isBookingEnd,
+        'hovered-booking-period': isHighlighted,
+        'hovered-booking-start': isHighlightedStart,
+        'hovered-booking-end': isHighlightedEnd,
         'selected': isStart || isEnd || inRange || inHoverRange,
       };
     };
@@ -419,7 +490,7 @@ export default {
       currentYear,
       currentMonth,
       calendars: computed(() => {
-        return [0, 1, 2].map(offset => {
+        return Array.from({ length: props.monthsCount }, (_, offset) => {
           const year = currentYear.value;
           const month = currentMonth.value + offset;
           const date = new Date(year, month);
@@ -431,6 +502,9 @@ export default {
           };
         });
       }),
+      calendarGridStyle: computed(() => ({
+        '--calendar-columns': props.monthsCount > 2 ? 2 : 1
+      })),
       canShowPrev,
       canShowNext,
       years,
@@ -564,7 +638,7 @@ export default {
     
     .month-option, .year-option {
       font-size: 12px;
-      padding: 3px 6px;
+      padding: 3px 4px;
       border-radius: 4px;
       cursor: pointer;
     }
@@ -581,9 +655,10 @@ export default {
   }
   
   .calendar-grid {
-    display: flex;
-    justify-content: space-evenly;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(var(--calendar-columns, 2), minmax(0, 315px));
+    justify-content: center;
+    gap: 18px;
     margin-bottom: 5px;
   }
   
@@ -787,6 +862,43 @@ export default {
 .day.booking-period-end {
   background-size: cover !important;
   background-position: center !important;}
+
+.day.hovered-booking-period {
+  background: rgba(198, 196, 253, 0.62) !important;
+  color: #312e81;
+  box-shadow: inset 0 0 0 1px rgba(76, 76, 247, 0.26);
+  position: relative;
+  z-index: 3;
+}
+
+.day.hovered-booking-period.disabled {
+  opacity: 1;
+}
+
+.day.hovered-booking-start {
+  border-radius: 8px 0 0 8px;
+}
+
+.day.hovered-booking-end {
+  border-radius: 0 8px 8px 0;
+}
+
+@media (max-width: 768px) {
+  .calendar-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .calendar-wrapper {
+    width: min(315px, 100%);
+    margin: 0 auto;
+  }
+
+  .day {
+    width: 100%;
+    min-width: 0;
+  }
+}
   
 
   </style>

@@ -7,10 +7,12 @@ tmp/
 temp/
 *.tmp
 *.bak
+python-*-amd64.exe
 
 ### Python ###
 # Виртуальное окружение
 venv/
+.python312/
 .env/
 .venv/
 env/

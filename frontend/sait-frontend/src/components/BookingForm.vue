@@ -2,7 +2,7 @@
   <div>
     <div ref="targetBlock"></div>
     <div class="booking-form" :class="fixedClass">
-      <h6>Бронирование
+      <h6>Проверка занятости
       </h6>
       <div class="date-inputs"  @click.stop="showDatePicker = true">
         <div class="input-group">
@@ -96,7 +96,7 @@
         :title="buttonTooltip"
         @click="handleBooking"
       >
-        Забронировать
+        Проверить
       </button>
       <div class="servis-mas">Пока вы ни за что не платите</div>
     </div>
@@ -107,6 +107,7 @@
 import GuestsInput from './GuestsInput.vue';
 import DateRangePicker from './DateRangePicker.vue';
 import CalendarStatus from './CalendarStatus.vue';
+import { trackEvent } from '@/utils/analytics';
 
 export default {
   name: 'BookingForm',
@@ -137,6 +138,10 @@ export default {
     maxGuests: {
       type: Number,
       required: true
+    },
+    roomId: {
+      type: [Number, String],
+      default: null
     },
   },
   emits: ['update:startDate', 'update:endDate', 'update:guestsCount', 'booking-change', 'booking-submit', 'close'],
@@ -256,7 +261,7 @@ totalPrice() {
       if (!this.startDate || !this.endDate) return 'Выберите даты заезда и выезда';
       if (this.guestsCount <= 0) return 'Укажите количество гостей';
       if (this.hasErrors) return 'Исправьте ошибки в форме';
-      return 'Подтвердить бронирование';
+      return 'Проверить бронирование';
     }
   },
   watch: {
@@ -317,6 +322,7 @@ totalPrice() {
 
     handleBooking() {
       if (this.canBook) {
+        trackEvent('booking_click', { roomId: this.roomId });
         this.$emit('booking-submit', {
           startDate: this.startDate,
           endDate: this.endDate,

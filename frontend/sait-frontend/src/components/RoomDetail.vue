@@ -16,7 +16,7 @@
         </button>
         
         <div  
-          v-for="(photo, index) in room.photos.slice(0, 5)"
+          v-for="(photo, index) in sortedRoomPhotos.slice(0, 5)"
           :key="photo.url"
           :class="['room_img', { main_img: photo.is_main }]"
           @click="openModal(index)" 
@@ -161,6 +161,7 @@
             :bookings="booking"
             :number-of-rooms="room.number_of_rooms"
             :max-guests="room.max_guests"
+            :room-id="roomId"
             @update:startDate="startDate = $event"
             @update:endDate="endDate = $event"
             @booking-change="handleBookingChange"
@@ -200,6 +201,7 @@ import DateRangePicker from './DateRangePicker.vue';
 import BookingForm from './BookingForm.vue';
 import PhotoModal from './PhotoModal.vue';
 import TelegramBookingModal from './TelegramBookingModal.vue';
+import { absoluteMediaUrl, getRoomPath, setPageMeta } from '@/utils/seo';
 
 export default {
   components: {
@@ -260,10 +262,16 @@ export default {
   computed: {
     fullPhotos() {
       if (!this.room) return [];
-      return this.room.photos.map(photo => ({
+      return this.sortedRoomPhotos.map(photo => ({
         ...photo,
         fullUrl: this.getPhotoUrl(photo.url)
       }));
+    },
+    sortedRoomPhotos() {
+      return [...(this.room?.photos || [])].sort((a, b) => {
+        const orderDiff = (a.sort_order || 0) - (b.sort_order || 0);
+        return orderDiff || a.id - b.id;
+      });
     },
     visibleAmenities() {
       if (!this.room) return [];
@@ -272,7 +280,7 @@ export default {
         : this.room.amenities.slice(0, this.defaultVisibleAmenities);
     },
     roomId() {
-      return this.$route.params.id;
+      return this.extractRoomId();
     },
   },
 
@@ -296,6 +304,29 @@ export default {
     // Метод для определения мобильного устройства
     checkMobile() {
       this.isMobile = window.innerWidth <= 768;
+    },
+
+    extractRoomId() {
+      if (this.$route.params.id) return this.$route.params.id;
+      const slug = this.$route.params.roomSlug || '';
+      const match = String(slug).match(/^(\d+)/);
+      return match ? match[1] : null;
+    },
+
+    updateRoomMeta() {
+      if (!this.room) return;
+      const mainPhoto = this.sortedRoomPhotos.find(photo => photo.is_main) || this.sortedRoomPhotos[0];
+      const description = this.room.description
+        ? this.room.description.replace(/\s+/g, ' ').slice(0, 160)
+        : `${this.room.title}: номер для отдыха в гостевом доме Виноградная Лоза в Крыму.`;
+
+      setPageMeta({
+        title: `${this.room.title} - ${this.room.max_guests} гостей | Виноградная Лоза`,
+        description,
+        image: absoluteMediaUrl(mainPhoto?.url),
+        url: `${window.location.origin}${getRoomPath(this.room)}`,
+        type: 'product'
+      });
     },
     
     // Метод для возврата на предыдущую страницу
@@ -411,10 +442,11 @@ export default {
     },
 
     async fetchRoomDetail() {
-      const roomId = this.$route.params.id;
+      const roomId = this.extractRoomId();
       try {
         const response = await api.get(`/rooms/${roomId}/`);
         this.room = response.data;
+        this.updateRoomMeta();
 
       } catch (error) {
         console.error('Ошибка при загрузке данных о комнате:', error);
@@ -436,8 +468,8 @@ export default {
 
     async loadBookings() {
       try {
-        const roomId = this.$route.params.id;
-        const response = await api.get(`/bookings/rooms/${roomId}`);
+        const resolvedRoomId = this.extractRoomId();
+        const response = await api.get(`/bookings/rooms/${resolvedRoomId}`);
         
         // Обеспечиваем реактивность
         this.booking = response.data

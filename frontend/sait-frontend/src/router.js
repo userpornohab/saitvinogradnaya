@@ -17,6 +17,11 @@ const routes = [
     component: RoomDetail,
   },
   {
+    path: '/rooms/:roomSlug',
+    name: 'RoomDetailSlug',
+    component: RoomDetail,
+  },
+  {
     path: '/',
     name: 'Home',
     component: MainStr,
