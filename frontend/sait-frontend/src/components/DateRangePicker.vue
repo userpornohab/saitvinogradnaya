@@ -105,15 +105,6 @@
       </div>
     </div>
 
-    <div class="flex">
-      <CalendarStatus 
-        :start-date="startDate"
-        :end-date="endDate"
-        :occupied-dates="occupiedDates"
-        :number-of-rooms="numberOfRooms"
-        @error="ErorDate"
-      />
-          </div>
   </div>
 </template>
 
