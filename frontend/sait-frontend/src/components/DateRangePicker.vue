@@ -110,12 +110,9 @@
 
 <script>
 import { ref, computed } from 'vue';
-import CalendarStatus from './CalendarStatus.vue';
 
 export default {
-  components: {
-    CalendarStatus
-  },
+
   
   props: {
     startDate: Date,
