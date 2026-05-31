@@ -64,6 +64,8 @@ services:
     env_file:
       - .env
     command: ["python", "run_bot.py"]
+    healthcheck:
+      disable: true
     depends_on:
       - backend
     networks:

@@ -244,10 +244,9 @@ async def run_bot() -> None:
     )
     dp = create_dispatcher(manager_chat_id)
 
-    me = await bot.get_me()
-    logger.info("Бот запущен: @%s (id=%s)", me.username, me.id)
-
     try:
+        me = await bot.get_me()
+        logger.info("Бот запущен: @%s (id=%s)", me.username, me.id)
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await bot.session.close()
