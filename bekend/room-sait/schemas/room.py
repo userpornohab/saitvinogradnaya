@@ -184,6 +184,15 @@ class TestimonialResponse(TestimonialBase):
     class Config:
         orm_mode = True
 
+class TestimonialImageBase(BaseModel):
+    url: str
+    sort_order: int = 0
+
+class TestimonialImageResponse(TestimonialImageBase):
+    id: int
+    class Config:
+        orm_mode = True
+
 class FAQBase(BaseModel):
     question: str
     answer: str
@@ -203,6 +212,7 @@ class SiteInfoBase(BaseModel):
 class SiteInfoResponse(SiteInfoBase):
     courtyard_photos: List[CourtyardPhotoResponse] = []
     testimonials: List[TestimonialResponse] = []
+    testimonial_images: List[TestimonialImageResponse] = []
     faqs: List[FAQResponse] = []
     class Config:
         orm_mode = True

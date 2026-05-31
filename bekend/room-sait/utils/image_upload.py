@@ -13,6 +13,7 @@ MAX_IMAGE_SIDE = 1920
 WEBP_QUALITY = 82
 
 ALLOWED_RASTER_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_SVG_TYPES = {"image/svg+xml"}
 
 
 def safe_stem(filename: str | None) -> str:
@@ -66,12 +67,41 @@ async def save_upload_image(file: UploadFile, upload_dir: Path, prefix: str) -> 
     return save_webp_image(content, upload_dir, file.filename, prefix)
 
 
+def save_svg_image(content: bytes, upload_dir: Path, original_filename: str | None, prefix: str) -> str:
+    try:
+        text = content.decode("utf-8", errors="ignore").lower()
+    except Exception:
+        raise HTTPException(400, f"Файл {original_filename} не похож на SVG")
+
+    if "<svg" not in text:
+        raise HTTPException(400, f"Файл {original_filename} не похож на SVG")
+    if "<script" in text or "javascript:" in text or " onload=" in text or " onerror=" in text:
+        raise HTTPException(400, f"SVG {original_filename} содержит небезопасный код")
+
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{prefix}_{uuid4().hex}_{safe_stem(original_filename)}.svg"
+    filepath = upload_dir / filename
+    filepath.write_bytes(content)
+    return f"/static/uploads/{filename}"
+
+
+async def save_upload_image_or_svg(file: UploadFile, upload_dir: Path, prefix: str) -> str:
+    if file.content_type in ALLOWED_RASTER_TYPES:
+        content = await read_limited_upload(file)
+        return save_webp_image(content, upload_dir, file.filename, prefix)
+    if file.content_type in ALLOWED_SVG_TYPES:
+        content = await read_limited_upload(file, max_bytes=512 * 1024)
+        return save_svg_image(content, upload_dir, file.filename, prefix)
+    raise HTTPException(400, f"Недопустимый тип файла {file.filename}")
+
+
 async def save_raw_upload(
     file: UploadFile,
     upload_dir: Path,
     prefix: str,
     allowed_types: set[str],
     max_bytes: int = 512 * 1024,
+    public_dir: str = "icons",
 ) -> str:
     if file.content_type not in allowed_types:
         raise HTTPException(400, f"Недопустимый тип файла {file.filename}")
@@ -81,4 +111,4 @@ async def save_raw_upload(
     upload_dir.mkdir(parents=True, exist_ok=True)
     filepath = upload_dir / filename
     filepath.write_bytes(content)
-    return f"/static/icons/{filename}"
+    return f"/static/{public_dir}/{filename}"

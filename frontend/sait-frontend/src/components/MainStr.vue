@@ -358,9 +358,8 @@ export default {
       return yardPhotos.length ? yardPhotos : this.sortedCourtyardPhotos.slice(1);
     },
     aboutImageSrc() {
-      const nonYardPhoto = this.sortedCourtyardPhotos.find(photo => (photo.category || 'yard') !== 'yard');
-      const fallbackPhoto = this.sortedCourtyardPhotos[1] || this.sortedCourtyardPhotos[0];
-      const photo = nonYardPhoto || fallbackPhoto;
+      const yardPhotos = this.sortedCourtyardPhotos.filter(photo => (photo.category || 'yard') === 'yard');
+      const photo = yardPhotos[1] || yardPhotos[0];
       return photo?.url
         ? `${API_BASE_URL}${photo.url}`
         : defaultImage;

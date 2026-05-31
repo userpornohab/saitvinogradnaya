@@ -74,12 +74,50 @@
         <h2>Отзывы</h2>
         <button @click="openTestimonialModal(null)" class="btn-add">Добавить отзыв</button>
       </div>
+
+      <div class="testimonial-library">
+        <div class="testimonial-library-header">
+          <div>
+            <h3>Фото для отзывов</h3>
+            <p>Загрузите изображения один раз, а потом выбирайте их в отзыве.</p>
+          </div>
+          <label class="btn-add upload-label">
+            Загрузить фото
+            <input
+              type="file"
+              multiple
+              class="hidden-file"
+              accept="image/*,.svg,image/svg+xml"
+              @change="handleTestimonialLibraryChange"
+            >
+          </label>
+        </div>
+        <div v-if="testimonialImages.length" class="testimonial-image-grid">
+          <div
+            v-for="image in testimonialImages"
+            :key="image.id"
+            class="testimonial-image-card"
+          >
+            <img :src="getFullUrl(image.url)" alt="Фото для отзыва">
+            <button
+              type="button"
+              class="delete-btn testimonial-image-delete"
+              title="Удалить"
+              @click="deleteTestimonialImage(image.id)"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <p v-else class="empty-note">Пока нет загруженных фото для отзывов.</p>
+      </div>
       
       <div class="items-list">
         <div v-for="testimonial in testimonials" :key="testimonial.id" class="list-item">
           <div class="item-info">
             <div class="item-header">
-              <img :src="getFullUrl(testimonial.author_icon_url)" class="author-icon">
+              <img v-if="testimonial.author_icon_url" :src="getFullUrl(testimonial.author_icon_url)" class="author-icon">
+              <span v-else class="author-icon author-icon-placeholder">{{ getInitials(testimonial.author_name) }}</span>
               <strong>{{ testimonial.author_name }}</strong>
             </div>
             <p>{{ testimonial.comment }}</p>
@@ -187,7 +225,29 @@
           </div>
           <div class="form-group">
             <label>Фото автора:</label>
-            <input type="file" @change="handleTestimonialPhotoChange" accept="image/*">
+            <label class="btn-add upload-label upload-label-inline">
+              Добавить в библиотеку
+              <input
+                type="file"
+                multiple
+                class="hidden-file"
+                accept="image/*,.svg,image/svg+xml"
+                @change="handleTestimonialLibraryChange"
+              >
+            </label>
+            <div v-if="testimonialImages.length" class="testimonial-picker">
+              <button
+                v-for="image in testimonialImages"
+                :key="image.id"
+                type="button"
+                class="testimonial-picker-item"
+                :class="{ 'testimonial-picker-item--active': selectedTestimonialImageUrl === image.url }"
+                @click="selectTestimonialImage(image.url)"
+              >
+                <img :src="getFullUrl(image.url)" alt="">
+              </button>
+            </div>
+            <p v-else class="empty-note">Сначала загрузите фото в библиотеку.</p>
           </div>
           <div class="form-group">
             <label>Комментарий:</label>
@@ -240,6 +300,7 @@ export default {
     const siteInfo = ref(null);
     const courtyardPhotos = ref([]);
     const testimonials = ref([]);
+    const testimonialImages = ref([]);
     const faqs = ref([]);
     
     // Модальные окна
@@ -257,7 +318,7 @@ export default {
     const mainPhotoFile = ref(null);
     const selectedCourtyardFiles = ref([]);
     const selectedCourtyardCategory = ref('yard');
-    const testimonialPhotoFile = ref(null);
+    const selectedTestimonialImageUrl = ref('');
     const draggedPhoto = ref(null);
     
     // Состояния редактирования
@@ -316,6 +377,7 @@ export default {
             // Сохраняем связанные данные
             courtyardPhotos.value = sortCourtyardPhotos(data.courtyard_photos || []);
             testimonials.value = data.testimonials || [];
+            testimonialImages.value = data.testimonial_images || [];
             faqs.value = data.faqs || [];
             
         } catch (error) {
@@ -343,8 +405,31 @@ export default {
       selectedCourtyardFiles.value = Array.from(e.target.files);
     };
 
-    const handleTestimonialPhotoChange = (e) => {
-      testimonialPhotoFile.value = e.target.files[0];
+    const handleTestimonialLibraryChange = async (e) => {
+      const files = Array.from(e.target.files || []);
+      e.target.value = '';
+      if (!files.length) return;
+
+      try {
+        const formData = new FormData();
+        files.forEach(file => {
+          formData.append('files', file);
+        });
+
+        const response = await api.post(
+          `${API_BASE}/testimonial-images`,
+          formData,
+          authMultipart()
+        );
+
+        testimonialImages.value = [...testimonialImages.value, ...response.data];
+        if (!selectedTestimonialImageUrl.value && response.data[0]?.url) {
+          selectedTestimonialImageUrl.value = response.data[0].url;
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки фото для отзывов:', error);
+        alert('Ошибка при загрузке фото для отзывов: ' + (error.response?.data?.detail || error.message));
+      }
     };
 
     // Удаление файла из списка выбранных
@@ -518,15 +603,20 @@ export default {
           author_name: testimonial.author_name,
           comment: testimonial.comment
         });
+        selectedTestimonialImageUrl.value = testimonial.author_icon_url || '';
       } else {
         Object.assign(editableTestimonial, {
           author_name: '',
           comment: ''
         });
+        selectedTestimonialImageUrl.value = testimonialImages.value[0]?.url || '';
       }
       
-      testimonialPhotoFile.value = null;
       showTestimonialModal.value = true;
+    };
+
+    const selectTestimonialImage = (url) => {
+      selectedTestimonialImageUrl.value = selectedTestimonialImageUrl.value === url ? '' : url;
     };
 
     const saveTestimonial = async () => {
@@ -535,10 +625,7 @@ export default {
         
         formData.append('author_name', editableTestimonial.author_name);
         formData.append('comment', editableTestimonial.comment);
-        
-        if (testimonialPhotoFile.value) {
-          formData.append('author_icon_file', testimonialPhotoFile.value);
-        }
+        formData.append('author_icon_url', selectedTestimonialImageUrl.value || '');
         
         let response;
         
@@ -560,7 +647,7 @@ export default {
         }
         
         showTestimonialModal.value = false;
-        testimonialPhotoFile.value = null;
+        selectedTestimonialImageUrl.value = '';
         loadData();
       } catch (error) {
         console.error('Ошибка сохранения отзыва:', error);
@@ -577,6 +664,31 @@ export default {
       } catch (error) {
         console.error('Ошибка удаления отзыва:', error);
       }
+    };
+
+    const deleteTestimonialImage = async (id) => {
+      if (!confirm('Удалить это фото из библиотеки отзывов?')) return;
+
+      try {
+        await api.delete(`${API_BASE}/testimonial-images/${id}`, authHeaders());
+        const deleted = testimonialImages.value.find(image => image.id === id);
+        testimonialImages.value = testimonialImages.value.filter(image => image.id !== id);
+        if (deleted?.url === selectedTestimonialImageUrl.value) {
+          selectedTestimonialImageUrl.value = '';
+        }
+      } catch (error) {
+        console.error('Ошибка удаления фото для отзывов:', error);
+        alert('Не удалось удалить фото: ' + (error.response?.data?.detail || error.message));
+      }
+    };
+
+    const getInitials = (name) => {
+      return (name || '?')
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase())
+        .join('') || '?';
     };
 
     // Методы для FAQ
@@ -644,9 +756,11 @@ export default {
       siteInfo,
       courtyardPhotos,
       testimonials,
+      testimonialImages,
       faqs,
       selectedCourtyardFiles,
       selectedCourtyardCategory,
+      selectedTestimonialImageUrl,
       territoryCategories,
       groupedCourtyardPhotos,
       
@@ -680,8 +794,11 @@ export default {
       dropPhotoIntoCategory,
       openTestimonialModal,
       saveTestimonial,
-      handleTestimonialPhotoChange,
+      handleTestimonialLibraryChange,
+      selectTestimonialImage,
+      deleteTestimonialImage,
       deleteTestimonial,
+      getInitials,
       openFaqModal,
       saveFaq,
       deleteFaq
@@ -984,6 +1101,114 @@ h2 {
   border-radius: 50%;
   margin-right: 12px;
   object-fit: cover;
+}
+
+.author-icon-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0eeff;
+  color: #6257d8;
+  font-weight: 700;
+}
+
+.testimonial-library {
+  padding: 16px;
+  border: 1px solid #ece9ff;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fbfaff 0%, #fff 100%);
+}
+
+.testimonial-library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.testimonial-library-header h3 {
+  margin: 0 0 4px;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.testimonial-library-header p,
+.empty-note {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.upload-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.upload-label-inline {
+  width: fit-content;
+  margin-bottom: 12px;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.testimonial-image-grid,
+.testimonial-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 10px;
+}
+
+.testimonial-image-card,
+.testimonial-picker-item {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid #ece9ff;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.testimonial-image-card img,
+.testimonial-picker-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.testimonial-image-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.testimonial-image-card:hover .testimonial-image-delete {
+  opacity: 1;
+}
+
+.testimonial-picker {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 72px));
+}
+
+.testimonial-picker-item {
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.testimonial-picker-item--active {
+  border-color: #6257d8;
+  box-shadow: 0 0 0 3px rgba(98, 87, 216, 0.16);
+  transform: translateY(-1px);
 }
 
 .item-actions {

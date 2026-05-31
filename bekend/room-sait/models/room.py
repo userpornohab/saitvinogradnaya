@@ -164,6 +164,16 @@ class Testimonial(Base):
     
     site_info = relationship("SiteInfo", backref="testimonials")
 
+class TestimonialImage(Base):
+    __tablename__ = "testimonial_images"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String(200), nullable=False)
+    sort_order = Column(Integer, default=0)
+    site_info_id = Column(Integer, ForeignKey("site_info.id"), default=1)
+    
+    site_info = relationship("SiteInfo", backref="testimonial_images")
+
 class FAQ(Base):
     __tablename__ = "faqs"
     

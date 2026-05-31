@@ -72,7 +72,7 @@
               </svg>
               Telegram
             </a>
-            <a class="tg-btn tg-btn--whatsapp" href="https://max.ru/u/f9LHodD0cOJdRipLQ_qVEFFxKouu83i7uE64OhSr-iesh8h3pUxI7cxkfqE" target="_blank" rel="noopener noreferrer">
+            <a class="tg-btn tg-btn--whatsapp" href="https://max.ru/u/f9LHodD0cOJCMqAs5cDodn4duMjHEI6EP4TJc_p4jl4ypwsE2xqiBwDAh_A" target="_blank" rel="noopener noreferrer">
               <img src="@/assets/icons/Max_logo.svg" alt="" width="20px" height="20px">
               Max
             </a>

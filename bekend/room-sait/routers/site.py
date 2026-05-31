@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database.database import get_db
-from models.room import SiteInfo, CourtyardPhoto, Testimonial, FAQ
+from models.room import SiteInfo, CourtyardPhoto, Testimonial, TestimonialImage, FAQ
 from schemas.room import (
     SiteInfoResponse,
     CourtyardPhotoResponse,
     TestimonialResponse,
+    TestimonialImageResponse,
     FAQCreate,
     SiteInfoBase,
     FAQResponse,
@@ -19,7 +20,7 @@ from schemas.room import (
 from auth.dependencies import check_superuser
 from pathlib import Path
 import os
-from utils.image_upload import save_upload_image
+from utils.image_upload import save_upload_image, save_upload_image_or_svg
 
 router = APIRouter(prefix="/site", tags=["site"])
 
@@ -38,6 +39,7 @@ def get_or_create_site_info(db: Session):
 def get_site_info(db: Session = Depends(get_db)):
     site_info = get_or_create_site_info(db)
     site_info.courtyard_photos.sort(key=lambda photo: (photo.category or "yard", photo.sort_order or 0, photo.id))
+    site_info.testimonial_images.sort(key=lambda image: (image.sort_order or 0, image.id))
     return site_info
 
 @router.put("/", response_model=SiteInfoBase, dependencies=[Depends(check_superuser)])
@@ -210,23 +212,97 @@ def delete_courtyard_photo(
     db.commit()
     return {"message": "Photo deleted"}
 
+@router.get("/testimonial-images", response_model=List[TestimonialImageResponse], dependencies=[Depends(check_superuser)])
+def get_testimonial_images(db: Session = Depends(get_db)):
+    return db.query(TestimonialImage).order_by(TestimonialImage.sort_order, TestimonialImage.id).all()
+
+@router.post("/testimonial-images", response_model=List[TestimonialImageResponse], dependencies=[Depends(check_superuser)])
+async def add_testimonial_images(
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db)
+):
+    site_info = get_or_create_site_info(db)
+    upload_dir = Path("static/uploads")
+    saved_images = []
+    saved_files = []
+
+    try:
+        max_order = db.query(func.max(TestimonialImage.sort_order)).scalar() or 0
+        for index, file in enumerate(files, start=1):
+            image_url = await save_upload_image_or_svg(
+                file=file,
+                upload_dir=upload_dir,
+                prefix="testimonial_icon"
+            )
+            saved_files.append(Path("static/uploads") / os.path.basename(image_url))
+            image = TestimonialImage(
+                url=image_url,
+                sort_order=max_order + index,
+                site_info_id=site_info.id
+            )
+            db.add(image)
+            saved_images.append(image)
+
+        db.commit()
+        for image in saved_images:
+            db.refresh(image)
+        return saved_images
+    except Exception as e:
+        db.rollback()
+        for filepath in saved_files:
+            if filepath.exists():
+                filepath.unlink()
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(500, f"File upload failed: {str(e)}")
+    finally:
+        for file in files:
+            await file.close()
+
+@router.delete("/testimonial-images/{image_id}", dependencies=[Depends(check_superuser)])
+def delete_testimonial_image(
+    image_id: int,
+    db: Session = Depends(get_db)
+):
+    image = db.query(TestimonialImage).filter(TestimonialImage.id == image_id).first()
+    if not image:
+        raise HTTPException(404, "Image not found")
+
+    used_count = db.query(Testimonial).filter(Testimonial.author_icon_url == image.url).count()
+    if used_count:
+        raise HTTPException(409, "Это фото используется в отзыве")
+
+    if image.url:
+        file_path = Path("static/uploads") / os.path.basename(image.url)
+        if file_path.exists():
+            file_path.unlink()
+
+    db.delete(image)
+    db.commit()
+    return {"message": "Image deleted"}
+
 @router.post("/testimonials", response_model=TestimonialResponse, dependencies=[Depends(check_superuser)])
 async def add_testimonial(
     author_name: str = Form(...),
     comment: str = Form(...),
-    author_icon_file: UploadFile = File(...),
+    author_icon_file: Optional[UploadFile] = File(None),
+    author_icon_url: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     site_info = get_or_create_site_info(db)
+    icon_url = author_icon_url
+
+    if author_icon_file:
+        icon_url = await save_upload_image_or_svg(
+            file=author_icon_file,
+            upload_dir=Path("static/uploads"),
+            prefix="testimonial_icon"
+        )
     
     testimonial = Testimonial(
         author_name=author_name,
         comment=comment,
-        author_icon_url=await save_upload_image(
-            file=author_icon_file,
-            upload_dir=Path("static/uploads"),
-            prefix="testimonial_icon"
-        ),
+        author_icon_url=icon_url,
         site_info_id=site_info.id
     )
     
@@ -242,6 +318,7 @@ async def update_testimonial(
     author_name: Optional[str] = Form(None),
     comment: Optional[str] = Form(None),
     author_icon_file: Optional[UploadFile] = File(None),
+    author_icon_url: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     testimonial = db.query(Testimonial).filter(Testimonial.id == testimonial_id).first()
@@ -252,15 +329,11 @@ async def update_testimonial(
         testimonial.author_name = author_name
     if comment is not None:
         testimonial.comment = comment
+    if author_icon_url is not None:
+        testimonial.author_icon_url = author_icon_url
     
     if author_icon_file:
-        # Удаляем старую иконку
-        if testimonial.author_icon_url:
-            old_path = Path("static/uploads") / os.path.basename(testimonial.author_icon_url)
-            if old_path.exists():
-                old_path.unlink()
-        
-        testimonial.author_icon_url = await save_upload_image(
+        testimonial.author_icon_url = await save_upload_image_or_svg(
             file=author_icon_file,
             upload_dir=Path("static/uploads"),
             prefix="testimonial_icon"
