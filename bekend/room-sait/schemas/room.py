@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -209,3 +209,56 @@ class SiteInfoResponse(SiteInfoBase):
 
 class SiteInfoUpdate(SiteInfoBase):
     pass
+
+
+class CalendarSyncSourceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    url: str = Field(..., min_length=8)
+    is_active: bool = True
+
+
+class CalendarSyncSourceUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    url: Optional[str] = Field(None, min_length=8)
+    is_active: Optional[bool] = None
+
+
+class CalendarSyncSourceResponse(BaseModel):
+    id: int
+    room_id: int
+    name: str
+    url: str
+    is_active: bool
+    last_synced_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class CalendarSyncEventResponse(BaseModel):
+    id: int
+    source_id: int
+    room_id: int
+    uid: str
+    summary: Optional[str] = None
+    start_date: date
+    end_date: date
+    imported_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class CalendarExportLinkResponse(BaseModel):
+    room_id: int
+    token: str
+    url: str
+
+
+class CalendarSyncResult(BaseModel):
+    source_id: int
+    imported_count: int
+    skipped_count: int = 0
+    last_error: Optional[str] = None

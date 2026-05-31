@@ -11,9 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from database.database import Base
-from models.room import Booking, PricePeriod, Room
+from models.room import Booking, CalendarSyncEvent, CalendarSyncSource, PricePeriod, Room
 from routers.rooms import filter_rooms
 from schemas.room import RoomFilter
+from utils.availability import is_room_available_for_period
+from utils.ical_sync import build_ical, collapse_busy_days, is_blocking_calendar_period, parse_ical_events
 from utils.price_calculator import calculate_booking_price
 
 
@@ -123,6 +125,173 @@ class BookingRulesTest(unittest.TestCase):
         )
 
         self.assertEqual([room.id for room in rooms], [self.room.id])
+
+    def test_filter_excludes_room_when_external_calendar_blocks_dates(self):
+        self.add_price(date(2026, 6, 1), date(2026, 6, 10), 2, 3000)
+        source = CalendarSyncSource(
+            room_id=self.room.id,
+            name="Суточно",
+            url="https://example.com/calendar.ics",
+        )
+        self.db.add(source)
+        self.db.commit()
+        self.db.refresh(source)
+        self.db.add(CalendarSyncEvent(
+            source_id=source.id,
+            room_id=self.room.id,
+            uid="external-1",
+            summary="Забронировано",
+            start_date=date(2026, 6, 3),
+            end_date=date(2026, 6, 5),
+        ))
+        self.db.commit()
+
+        rooms = filter_rooms(
+            RoomFilter(
+                guests=2,
+                check_in_date=date(2026, 6, 4),
+                check_out_date=date(2026, 6, 6),
+            ),
+            db=self.db,
+        )
+
+        self.assertEqual(rooms, [])
+
+    def test_external_calendar_event_blocks_whole_multi_unit_category(self):
+        self.room.number_of_rooms = 2
+        self.add_price(date(2026, 6, 1), date(2026, 6, 10), 2, 3000)
+        source = CalendarSyncSource(
+            room_id=self.room.id,
+            name="Суточно",
+            url="https://example.com/calendar.ics",
+        )
+        self.db.add(source)
+        self.db.commit()
+        self.db.refresh(source)
+        self.db.add(CalendarSyncEvent(
+            source_id=source.id,
+            room_id=self.room.id,
+            uid="external-1",
+            summary="Забронировано",
+            start_date=date(2026, 6, 3),
+            end_date=date(2026, 6, 5),
+        ))
+        self.db.commit()
+
+        self.assertFalse(is_room_available_for_period(
+            self.db,
+            self.room,
+            date(2026, 6, 4),
+            date(2026, 6, 6),
+        ))
+
+    def test_external_calendar_placeholder_does_not_block_dates(self):
+        self.room.number_of_rooms = 2
+        source = CalendarSyncSource(
+            room_id=self.room.id,
+            name="Суточно",
+            url="https://example.com/calendar.ics",
+        )
+        self.db.add(source)
+        self.db.commit()
+        self.db.refresh(source)
+        self.db.add(CalendarSyncEvent(
+            source_id=source.id,
+            room_id=self.room.id,
+            uid="external-placeholder",
+            summary="Недоступно",
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 10),
+        ))
+        self.db.commit()
+
+        self.assertTrue(is_room_available_for_period(
+            self.db,
+            self.room,
+            date(2026, 10, 2),
+            date(2026, 10, 4),
+        ))
+
+    def test_long_external_calendar_event_does_not_block_dates(self):
+        self.assertFalse(is_blocking_calendar_period(
+            "Забронировано",
+            date(2026, 10, 1),
+            date(2026, 12, 15),
+        ))
+
+    def test_availability_uses_per_day_capacity_for_multi_unit_rooms(self):
+        self.room.number_of_rooms = 2
+        self.db.add(self.room)
+        self.db.add(Booking(
+            room_id=self.room.id,
+            check_in_date=date(2026, 6, 1),
+            check_out_date=date(2026, 6, 3),
+            number_of_guests=2,
+            price=6000,
+        ))
+        self.db.add(Booking(
+            room_id=self.room.id,
+            check_in_date=date(2026, 6, 3),
+            check_out_date=date(2026, 6, 5),
+            number_of_guests=2,
+            price=6000,
+        ))
+        self.db.commit()
+
+        self.assertTrue(is_room_available_for_period(
+            self.db,
+            self.room,
+            date(2026, 6, 1),
+            date(2026, 6, 5),
+        ))
+
+    def test_ical_parser_reads_sutochno_style_events(self):
+        raw_calendar = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:test-1
+DTSTART:20260801T140000
+DTEND:20260918T120000
+SUMMARY:Забронировано
+END:VEVENT
+END:VCALENDAR
+"""
+
+        events = parse_ical_events(raw_calendar)
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].uid, "test-1")
+        self.assertEqual(events[0].start_date, date(2026, 8, 1))
+        self.assertEqual(events[0].end_date, date(2026, 9, 18))
+
+    def test_ical_export_marks_only_fully_busy_days_for_multi_unit_room(self):
+        events = [
+            CalendarSyncEvent(
+                source_id=1,
+                room_id=self.room.id,
+                uid="external-1",
+                summary="Забронировано",
+                start_date=date(2026, 6, 1),
+                end_date=date(2026, 6, 4),
+            ),
+            CalendarSyncEvent(
+                source_id=1,
+                room_id=self.room.id,
+                uid="external-2",
+                summary="Забронировано",
+                start_date=date(2026, 6, 2),
+                end_date=date(2026, 6, 3),
+            ),
+        ]
+
+        collapsed = collapse_busy_days(events, units_count=2)
+        calendar = build_ical(collapsed)
+
+        self.assertEqual(len(collapsed), 1)
+        self.assertEqual(collapsed[0].start_date, date(2026, 6, 2))
+        self.assertEqual(collapsed[0].end_date, date(2026, 6, 3))
+        self.assertIn("DTSTART;VALUE=DATE:20260602", calendar)
+        self.assertIn("DTEND;VALUE=DATE:20260603", calendar)
 
 
 if __name__ == "__main__":

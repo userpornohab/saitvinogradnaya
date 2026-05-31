@@ -21,7 +21,7 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: admin@vinegrape.ru
+      email: loza-vinogradnaya@mail.ru
       storage: /acme.json
       httpChallenge:
         entryPoint: web

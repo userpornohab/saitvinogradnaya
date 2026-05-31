@@ -64,9 +64,20 @@ database.db
 
 # Файлы .env (никогда не коммитьте секреты!)
 .env
+.env.*
+!.env.example
 .secrets
 traefik/acme.json
 acme.json
+docker-compose.override.yml
+
+# Локальные данные Docker/SQLite
+data/
+bekend/room-sait/data/
+
+# Новые файлы, загруженные через админку, должны жить в volume/backup, а не в git
+bekend/room-sait/static/uploads/*
+bekend/room-sait/static/icons/icon_*
 
 # Логи приложения
 logs/

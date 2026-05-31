@@ -14,6 +14,7 @@
       <div class="room-actions">
         <button @click.stop="$emit('manage-prices', room)" title="Управление ценами">💰</button>
         <button @click.stop="$emit('manage-bookings', room)" title="Бронирования">📅</button>
+        <button @click.stop="$emit('manage-calendar-sync', room)" title="Синхронизация календарей">⇄</button>
         <button @click.stop="$emit('edit', room)" title="Редактировать">✏️</button>
       </div>
     </div>

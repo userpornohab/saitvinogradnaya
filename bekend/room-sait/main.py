@@ -18,7 +18,8 @@ from routers import (
     bed_options,
     price_periods,
     site,
-    analytics
+    analytics,
+    calendar_sync
 )
 
 app = FastAPI()
@@ -57,6 +58,10 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 Base.metadata.create_all(bind=engine)
 
+@app.get("/health", include_in_schema=False)
+def health_check():
+    return {"status": "ok"}
+
 # Создание директорий для файлов
 ICON_DIR = Path("static/icons")
 ICON_DIR.mkdir(parents=True, exist_ok=True)  # Создаем директорию
@@ -88,6 +93,18 @@ def ensure_room_photo_columns():
 
 ensure_room_photo_columns()
 
+def ensure_room_calendar_columns():
+    inspector = inspect(engine)
+    if "rooms" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("rooms")}
+    with engine.begin() as connection:
+        if "calendar_token" not in columns:
+            connection.execute(text("ALTER TABLE rooms ADD COLUMN calendar_token VARCHAR(64)"))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_rooms_calendar_token ON rooms(calendar_token)"))
+
+ensure_room_calendar_columns()
+
 @app.post("/upload-icon")
 async def upload_icon(file: UploadFile = File(...)):
     try:
@@ -113,6 +130,7 @@ app.include_router(bed_options.router)
 app.include_router(price_periods.router)
 app.include_router(site.router)
 app.include_router(analytics.router)
+app.include_router(calendar_sync.router)
 
 
 # Каскадное удаление файлов

@@ -6,9 +6,11 @@ from models.user import User
 from datetime import date, timedelta
 
 from database.database import get_db
-from models.room import Booking, Room
+from models.room import Booking, CalendarSyncEvent, Room
 from schemas.room import BookingCreate, BookingResponse, BookingUpdate, BookingBase
 from auth.dependencies import check_superuser
+from utils.availability import is_room_available_for_period
+from utils.ical_sync import is_blocking_calendar_period
 from utils.price_calculator import calculate_booking_price
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -147,15 +149,14 @@ async def update_booking(
             detail="Check-out date must be after check-in date"
         )
 
-    overlapping = db.query(Booking).filter(
-        Booking.room_id == booking.room_id,
-        Booking.id != booking_id,
-        Booking.check_in_date < booking_data.check_out_date,
-        Booking.check_out_date > booking_data.check_in_date
-    ).count()
-
     room = db.query(Room).get(booking.room_id)
-    if overlapping >= room.number_of_rooms:
+    if not is_room_available_for_period(
+        db=db,
+        room=room,
+        check_in_date=booking_data.check_in_date,
+        check_out_date=booking_data.check_out_date,
+        exclude_booking_id=booking_id,
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Room is already booked for these dates"
@@ -232,14 +233,12 @@ def create_booking(
     if booking_data.check_out_date <= booking_data.check_in_date:
         raise HTTPException(400, detail="Invalid dates")
 
-    # Проверка доступности
-    overlapping_bookings = db.query(Booking).filter(
-        Booking.room_id == booking_data.room_id,
-        Booking.check_in_date < booking_data.check_out_date,
-        Booking.check_out_date > booking_data.check_in_date
-    ).count()
-    
-    if overlapping_bookings >= room.number_of_rooms:
+    if not is_room_available_for_period(
+        db=db,
+        room=room,
+        check_in_date=booking_data.check_in_date,
+        check_out_date=booking_data.check_out_date,
+    ):
         raise HTTPException(400, detail="На этот период все комнаты заняты")
 
 
@@ -310,10 +309,21 @@ def get_bookings_by_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     
-    # Получаем все бронирования для этой комнаты
     bookings = db.query(Booking).filter(Booking.room_id == room_id).all()
-    
-    return bookings
+    external_events = db.query(CalendarSyncEvent).filter(CalendarSyncEvent.room_id == room_id).all()
+
+    busy_periods = list(bookings)
+    for event in external_events:
+        if not is_blocking_calendar_period(event.summary or "", event.start_date, event.end_date):
+            continue
+        for _ in range(max(room.number_of_rooms or 1, 1)):
+            busy_periods.append({
+                "room_id": event.room_id,
+                "check_in_date": event.start_date,
+                "check_out_date": event.end_date,
+            })
+
+    return busy_periods
 
 
 @router.get("/booking-stats")

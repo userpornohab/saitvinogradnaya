@@ -7,9 +7,10 @@ import shutil
 import os
 from typing import List
 from database.database import get_db
-from models.room import Room, RoomPhoto, PricePeriod, Amenity, RoomAmenity, Booking, RoomBedOption, BedOption
+from models.room import Room, RoomPhoto, PricePeriod, Amenity, RoomAmenity, RoomBedOption, BedOption
 from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomPhotoResponse, RoomFilter, RoomUpdate, RoomBase, RoomPhotoOrderItem
 from auth.dependencies import check_superuser
+from utils.availability import is_room_available_for_period
 from utils.image_upload import save_upload_image
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
@@ -174,14 +175,12 @@ def filter_rooms(filter_data: RoomFilter, db: Session = Depends(get_db)):
         if not all_days_covered:
             continue
         
-        # Проверяем доступность комнаты по бронированиям
-        overlapping_bookings = db.query(Booking).filter(
-            Booking.room_id == room.id,
-            Booking.check_in_date < filter_data.check_out_date,
-            Booking.check_out_date > filter_data.check_in_date
-        ).count()
-        
-        if overlapping_bookings < room.number_of_rooms:
+        if is_room_available_for_period(
+            db=db,
+            room=room,
+            check_in_date=filter_data.check_in_date,
+            check_out_date=filter_data.check_out_date,
+        ):
             available_rooms.append(room)
     
     return available_rooms

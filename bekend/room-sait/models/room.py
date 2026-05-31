@@ -91,6 +91,7 @@ class Room(Base):
     title_dop = Column(String(100))
     floor = Column(Integer, nullable=True)  # Добавленное поле этажа
     area = Column(Integer, default=0)  # Площадь помещения (м2)
+    calendar_token = Column(String(64), nullable=True, unique=True, index=True)
 
     # Relationships
     bed_options = relationship("BedOption", secondary="room_bed_options", back_populates="rooms")
@@ -98,6 +99,40 @@ class Room(Base):
     photos = relationship("RoomPhoto", back_populates="room", cascade="all, delete")
     price_periods = relationship("PricePeriod", back_populates="room", cascade="all, delete")
     amenities = relationship("Amenity", secondary="room_amenities", back_populates="rooms")
+    calendar_sources = relationship("CalendarSyncSource", back_populates="room", cascade="all, delete")
+    calendar_events = relationship("CalendarSyncEvent", back_populates="room", cascade="all, delete")
+
+
+class CalendarSyncSource(Base):
+    __tablename__ = "calendar_sync_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    url = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True)
+    last_synced_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    room = relationship("Room", back_populates="calendar_sources")
+    events = relationship("CalendarSyncEvent", back_populates="source", cascade="all, delete")
+
+
+class CalendarSyncEvent(Base):
+    __tablename__ = "calendar_sync_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_id = Column(Integer, ForeignKey("calendar_sync_sources.id"), nullable=False, index=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False, index=True)
+    uid = Column(String(300), nullable=False)
+    summary = Column(String(300), nullable=True)
+    start_date = Column(Date, nullable=False, index=True)
+    end_date = Column(Date, nullable=False, index=True)
+    imported_at = Column(DateTime, default=datetime.utcnow)
+
+    source = relationship("CalendarSyncSource", back_populates="events")
+    room = relationship("Room", back_populates="calendar_events")
 
 
 class SiteInfo(Base):

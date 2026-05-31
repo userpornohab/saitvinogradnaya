@@ -18,6 +18,7 @@
           @delete="deleteRoom"
           @manage-prices="togglePriceManagement"
           @manage-bookings="toggleBookingManagement"
+          @manage-calendar-sync="toggleCalendarSyncManagement"
         />
       </div>
     </div>
@@ -81,6 +82,14 @@
       @init-edit="initBookingEdit"
     />
 
+    <!-- Синхронизация календарей -->
+    <CalendarSyncManagement
+      v-if="showCalendarSyncManagement && selectedCalendarRoom"
+      :room="selectedCalendarRoom"
+      @close="closeCalendarSyncManagement"
+      @notify="showNotification"
+    />
+
     <!-- Уведомления -->
     <transition name="fade">
       <div v-if="notification" :class="['notification', notification.type]">
@@ -97,10 +106,11 @@ import RoomListCard from './Admin/RoomListCard.vue';
 import RoomEditor from './Admin/RoomEditor.vue';
 import PriceManagement from './Admin/PriceManagement.vue';
 import BookingManagement from './Admin/BookingManagement.vue';
+import CalendarSyncManagement from './Admin/CalendarSyncManagement.vue';
 
 export default {
   name: 'AdminRooms',
-  components: { AdminHeader, RoomListCard, RoomEditor, PriceManagement, BookingManagement },
+  components: { AdminHeader, RoomListCard, RoomEditor, PriceManagement, BookingManagement, CalendarSyncManagement },
   data() {
     return {
       rooms: [],
@@ -121,6 +131,9 @@ export default {
       selectedPriceRoom: null,
       showBookingManagement: false,
       selectedBookingRoom: null,
+      showCalendarSyncManagement: false,
+      selectedCalendarRoom: null,
+      externalCalendarEvents: [],
       occupiedDates: {},
       editingBookings: {},
       notification: null,
@@ -142,6 +155,7 @@ export default {
       this.isNewRoom = true;
       this.showPriceManagement = false;
       this.showBookingManagement = false;
+      this.showCalendarSyncManagement = false;
       this.newRoom = { title: '', title_dop: '', description: '', floor: 1, max_guests: 2, number_of_rooms: 1, area: 0, amenities: [], bed_options: [] };
     },
     selectRoom(room) {
@@ -149,6 +163,7 @@ export default {
       this.isNewRoom = false;
       this.showPriceManagement = false;
       this.showBookingManagement = false;
+      this.showCalendarSyncManagement = false;
       this.selectedRoomId = null;
       this.newRoom = {
         title: room.title, title_dop: room.title_dop, description: room.description,
@@ -173,6 +188,7 @@ export default {
       this.selectedPriceRoom = room;
       this.showPriceManagement = true;
       this.showBookingManagement = false;
+      this.showCalendarSyncManagement = false;
       this.selectedRoom = null;
       this.resetDataForm();
     },
@@ -256,19 +272,40 @@ export default {
       this.selectedBookingRoom = { ...room, bookings: room.bookings || [] };
       this.showBookingManagement = true;
       this.showPriceManagement = false;
+      this.showCalendarSyncManagement = false;
       this.loadBookings(room.id);
     },
     closeBookingManagement() {
       this.selectedRoomId = null;
       this.showBookingManagement = false;
       this.selectedBookingRoom = null;
+      this.externalCalendarEvents = [];
+    },
+    toggleCalendarSyncManagement(room) {
+      this.selectedRoom = null;
+      this.selectedRoomId = room.id;
+      this.selectedCalendarRoom = room;
+      this.showCalendarSyncManagement = true;
+      this.showPriceManagement = false;
+      this.showBookingManagement = false;
+    },
+    closeCalendarSyncManagement() {
+      this.selectedRoomId = null;
+      this.showCalendarSyncManagement = false;
+      this.selectedCalendarRoom = null;
     },
     async loadBookings(roomId) {
       try {
-        const response = await api.get(`/bookings/rooms/${roomId}/admin`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-        });
-        this.selectedBookingRoom = { ...this.selectedBookingRoom, bookings: response.data };
+        const [bookingsResponse, eventsResponse] = await Promise.all([
+          api.get(`/bookings/rooms/${roomId}/admin`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+          }),
+          api.get(`/calendar-sync/rooms/${roomId}/events`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+          })
+        ]);
+        this.selectedBookingRoom = { ...this.selectedBookingRoom, bookings: bookingsResponse.data };
+        this.externalCalendarEvents = eventsResponse.data || [];
         this.calculateOccupiedDates();
       } catch (error) {
         this.handleApiError(error, 'Ошибка загрузки бронирований');
@@ -363,16 +400,26 @@ export default {
     calculateOccupiedDates() {
       if (!this.selectedBookingRoom?.bookings) { this.occupiedDates = {}; return; }
       const dates = {};
-      this.selectedBookingRoom.bookings.forEach(booking => {
+      const addBusyPeriod = (startDate, endDate, weight = 1) => {
         try {
-          const current = new Date(booking.check_in_date);
-          const end = new Date(booking.check_out_date);
+          const current = new Date(startDate);
+          const end = new Date(endDate);
           while (current < end) {
             const dateStr = current.toISOString().split('T')[0];
-            dates[dateStr] = (dates[dateStr] || 0) + 1;
+            dates[dateStr] = (dates[dateStr] || 0) + weight;
             current.setDate(current.getDate() + 1);
           }
         } catch (e) { /* skip */ }
+      };
+      this.selectedBookingRoom.bookings.forEach(booking => {
+        addBusyPeriod(booking.check_in_date, booking.check_out_date);
+      });
+      this.externalCalendarEvents.forEach(event => {
+        addBusyPeriod(
+          event.start_date,
+          event.end_date,
+          Math.max(this.selectedBookingRoom?.number_of_rooms || 1, 1)
+        );
       });
       this.occupiedDates = dates;
     },
@@ -540,7 +587,7 @@ export default {
 
     // === Утилиты ===
     resetDataForm() { /* reset if needed */ },
-    handleKeyPress(e) { if (e.key === 'Escape') { this.closePriceManagement(); this.closeBookingManagement(); } },
+    handleKeyPress(e) { if (e.key === 'Escape') { this.closePriceManagement(); this.closeBookingManagement(); this.closeCalendarSyncManagement(); } },
     async checkAdminStatus() {
       try {
         const token = localStorage.getItem('access_token');
@@ -578,6 +625,10 @@ export default {
     },
     showSuccess(message) {
       this.notification = { type: 'success', message };
+      setTimeout(() => this.notification = null, 5000);
+    },
+    showNotification({ type, message }) {
+      this.notification = { type, message };
       setTimeout(() => this.notification = null, 5000);
     }
   }
