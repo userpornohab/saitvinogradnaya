@@ -830,9 +830,9 @@ export default {
 .price-range {
   display: flex;
   margin: 0;
-  color: var(--color-gray-900);
+  color: var(--color-gray-700);
   font-size: 0.98rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
   text-align: right;
 }
