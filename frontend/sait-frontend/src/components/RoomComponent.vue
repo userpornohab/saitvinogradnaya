@@ -9,10 +9,22 @@
       :class="{ 'is-loading': isLoading }"
     />
 
-    <div v-if="isLoading" class="loading-indicator">
-      <div class="spinner_grup">
-        <div class="spinner"></div>
-        <div class="spinner_text">Поиск подходящих комнат...</div>
+    <div v-if="isLoading" class="rooms-skeleton" aria-busy="true" aria-live="polite">
+      <span class="rooms-skeleton-label">{{ loadingText }}</span>
+      <div class="flex">
+        <article v-for="item in 3" :key="'room-skeleton-' + item" class="room room--skeleton">
+          <div class="slider-container skeleton-block"></div>
+          <div class="room-header room-header--skeleton">
+            <div class="room-header-title-skeleton">
+              <span class="skeleton-line skeleton-line--mid"></span>
+              <span class="skeleton-line skeleton-line--tiny"></span>
+            </div>
+            <div class="price-range price-range--skeleton">
+              <span class="skeleton-line skeleton-line--short"></span>
+              <span class="skeleton-line skeleton-line--tiny"></span>
+            </div>
+          </div>
+        </article>
       </div>
     </div>
     
@@ -44,6 +56,8 @@
                     :src="getPhotoUrl(photo.url)" 
                     :alt="room.title" 
                     class="slider-image"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               </div>
@@ -138,6 +152,8 @@
                     :src="getPhotoUrl(photo.url)" 
                     :alt="'Фото двора'" 
                     class="slider-image"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               </div>
@@ -174,8 +190,30 @@
         </div>
       </div>
       
-      <div v-else>
-        <p>Нет доступных комнат по вашему запросу.</p>
+      <div v-else class="rooms-empty-state">
+        <div class="rooms-empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M13 31.5C13 20.7 21.7 12 32.5 12S52 20.7 52 31.5 43.3 51 32.5 51 13 42.3 13 31.5Z" fill="currentColor" opacity="0.12"/>
+            <path d="M22 34.5V25a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v9.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <path d="M18 43V32.5a3 3 0 0 1 3-3h22a3 3 0 0 1 3 3V43" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <path d="M18 43h28M23 43v-4M41 43v-4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <path d="M46 18 18 46" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="rooms-empty-content">
+          <h3>На выбранные даты свободных номеров нет</h3>
+          <p>
+            Попробуйте изменить даты, количество гостей или посмотрите все варианты размещения без фильтра.
+          </p>
+          <button
+            v-if="url_data"
+            type="button"
+            class="rooms-empty-button"
+            @click="$emit('reset-search')"
+          >
+            Показать все номера
+          </button>
+        </div>
       </div>
     </div>
 
@@ -214,6 +252,10 @@ export default {
     isLoading: {
       type: Boolean,
       default: false
+    },
+    loadingText: {
+      type: String,
+      default: 'Загружаем номера...'
     },
     pfoto_dvor: {
       type: Array,
@@ -361,9 +403,79 @@ export default {
 }
 
 .room_serch,
-.loading-indicator {
+.loading-indicator,
+.rooms-skeleton {
   position: relative;
   z-index: 1;
+}
+
+.rooms-skeleton {
+  margin: 30px 0;
+}
+
+.rooms-skeleton-label {
+  display: inline-flex;
+  margin: 0 0 var(--spacing-md);
+  color: var(--color-gray-500);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.room--skeleton {
+  cursor: default;
+}
+
+.skeleton-block,
+.skeleton-line {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #ececf4 0%, #f8f7ff 46%, #ececf4 100%);
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.skeleton-line {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.skeleton-line--mid {
+  width: 150px;
+}
+
+.skeleton-line--short {
+  width: 118px;
+}
+
+.skeleton-line--tiny {
+  width: 76px;
+}
+
+.room-header--skeleton {
+  gap: var(--spacing-md);
+}
+
+.room-header-title-skeleton,
+.price-range--skeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.price-range--skeleton {
+  justify-items: end;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block,
+  .skeleton-line {
+    animation: none;
+  }
 }
 
 @keyframes rooms-bg-float {
@@ -466,6 +578,114 @@ export default {
 /* Остальные стили остаются без изменений */
 .room_serch {
   margin: 30px 0;
+}
+
+.rooms-empty-state {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 560px);
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-xl);
+  width: min(100%, 860px);
+  margin: clamp(18px, 4vw, 42px) auto 0;
+  padding: clamp(24px, 5vw, 44px);
+  border: 1px solid rgba(198, 196, 253, 0.55);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(420px 180px at 10% 15%, rgba(198, 196, 253, 0.28), transparent 70%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 247, 255, 0.92));
+  box-shadow: 0 18px 48px rgba(24, 24, 27, 0.07);
+  overflow: hidden;
+}
+
+.rooms-empty-state::after {
+  content: "";
+  position: absolute;
+  right: -54px;
+  bottom: -68px;
+  width: 180px;
+  height: 180px;
+  border: 34px solid rgba(198, 196, 253, 0.22);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.rooms-empty-icon {
+  position: relative;
+  z-index: 1;
+  width: clamp(76px, 11vw, 118px);
+  height: clamp(76px, 11vw, 118px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #5651d8;
+  border-radius: 28px 10px 28px 10px;
+  background: rgba(198, 196, 253, 0.22);
+}
+
+.rooms-empty-icon svg {
+  width: 72%;
+  height: 72%;
+}
+
+.rooms-empty-content {
+  position: relative;
+  z-index: 1;
+}
+
+.rooms-empty-content h3 {
+  margin: 0 0 8px;
+  color: var(--color-gray-900);
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  line-height: 1.18;
+}
+
+.rooms-empty-content p {
+  margin: 0;
+  max-width: 54ch;
+  color: var(--color-gray-600);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+}
+
+.rooms-empty-button {
+  margin-top: var(--spacing-lg);
+  padding: 12px 18px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: #5651d8;
+  color: var(--color-white);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(86, 81, 216, 0.22);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.rooms-empty-button:hover {
+  transform: translateY(-1px);
+  background: #4640bd;
+  box-shadow: 0 16px 30px rgba(86, 81, 216, 0.3);
+}
+
+.rooms-empty-button:focus-visible {
+  outline: 3px solid rgba(86, 81, 216, 0.28);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .rooms-empty-state {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: var(--spacing-lg);
+  }
+
+  .rooms-empty-content p {
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 .spinner_text {

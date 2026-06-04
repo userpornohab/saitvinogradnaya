@@ -29,7 +29,12 @@
           </div>
           <div class="about-content">
             <h2 class="section-title">О нашем гостевом доме</h2>
-            <p class="about-text">{{ siteInfo?.main_description || '' }}</p>
+            <div v-if="siteInfoLoading" class="content-skeleton about-text-skeleton" aria-hidden="true">
+              <span class="skeleton-line skeleton-line--wide"></span>
+              <span class="skeleton-line"></span>
+              <span class="skeleton-line skeleton-line--short"></span>
+            </div>
+            <p v-else class="about-text">{{ siteInfo?.main_description || '' }}</p>
           </div>
         </div>
 
@@ -58,7 +63,9 @@
           :pfoto_dvor="getPhotoDvor"
           :rooms="filteredRooms"
           :url_data="urldata"
-          :is-loading="isLoading"
+          :is-loading="isLoading || roomsLoading"
+          :loading-text="isLoading ? 'Поиск подходящих комнат...' : 'Загружаем номера...'"
+          @reset-search="Clire"
         />
       </div>
     </section>
@@ -71,14 +78,25 @@
           <span class="eyebrow">Территория и отдых</span>
         </div>
 
-        <div v-if="territoryGroups.length" class="territory-groups">
+        <div v-if="siteInfoLoading" class="territory-groups territory-groups--loading" aria-hidden="true">
+          <article v-for="item in 3" :key="'territory-skeleton-' + item" class="territory-group-card territory-group-card--skeleton">
+            <div class="territory-group-main skeleton-block"></div>
+            <div class="territory-thumbs">
+              <span class="territory-thumb skeleton-block"></span>
+              <span class="territory-thumb skeleton-block"></span>
+              <span class="territory-thumb skeleton-block"></span>
+            </div>
+          </article>
+        </div>
+
+        <div v-else-if="territoryGroups.length" class="territory-groups">
           <article
             v-for="group in territoryGroups"
             :key="group.category"
             class="territory-group-card"
           >
             <div class="territory-group-main">
-              <img :src="activeTerritoryPhoto(group).fullUrl" :alt="group.label" class="territory-image" loading="lazy" />
+              <img :src="activeTerritoryPhoto(group).fullUrl" :alt="group.label" class="territory-image" loading="lazy" decoding="async" />
               <div class="territory-caption">
                 <h3>{{ group.label }}</h3>
                 <p>{{ group.description }}</p>
@@ -93,7 +111,7 @@
                 :class="{ 'territory-thumb--active': activeTerritoryPhoto(group).id === photo.id }"
                 @click="setTerritoryPhoto(group.category, photo.id)"
               >
-                <img :src="photo.fullUrl" :alt="group.label" loading="lazy" />
+                <img :src="photo.fullUrl" :alt="group.label" loading="lazy" decoding="async" />
               </button>
             </div>
           </article>
@@ -117,8 +135,14 @@
           <div class="faq-content">
 
             <div class="faq-list">
+              <div v-if="siteInfoLoading" class="faq-skeleton" aria-hidden="true">
+                <span v-for="item in 4" :key="'faq-skeleton-' + item" class="faq-skeleton-row">
+                  <span class="skeleton-line"></span>
+                  <span class="skeleton-dot"></span>
+                </span>
+              </div>
               <div
-                v-for="(faq, index) in siteInfo?.faqs || []"
+                v-for="(faq, index) in siteInfoLoading ? [] : (siteInfo?.faqs || [])"
                 :key="faq.id"
                 class="faq-item"
               >
@@ -136,7 +160,7 @@
                   </div>
                 </transition>
               </div>
-              <p v-if="!siteInfo?.faqs || siteInfo.faqs.length === 0" class="text-center text-gray">
+              <p v-if="!siteInfoLoading && (!siteInfo?.faqs || siteInfo.faqs.length === 0)" class="text-center text-gray">
                 Вопросы скоро появятся
               </p>
             </div>
@@ -247,7 +271,23 @@
           <h2 class="section-title text-center">Отзывы наших гостей</h2>
           <span class="eyebrow">Впечатления гостей</span>
         </div>
-        <div class="testimonials-slider" v-if="siteInfo?.testimonials?.length">
+        <div class="testimonials-slider" v-if="siteInfoLoading" aria-hidden="true">
+          <div class="testimonials-track">
+            <article v-for="item in 3" :key="'review-skeleton-' + item" class="testimonial-card testimonial-card--skeleton">
+              <div class="testimonial-header">
+                <span class="testimonial-avatar skeleton-circle"></span>
+                <div class="testimonial-author testimonial-author--skeleton">
+                  <span class="skeleton-line skeleton-line--short"></span>
+                  <span class="skeleton-line skeleton-line--tiny"></span>
+                </div>
+              </div>
+              <span class="skeleton-line skeleton-line--wide"></span>
+              <span class="skeleton-line"></span>
+              <span class="skeleton-line skeleton-line--mid"></span>
+            </article>
+          </div>
+        </div>
+        <div class="testimonials-slider" v-else-if="siteInfo?.testimonials?.length">
           <div class="testimonials-track" ref="testimonialsTrack">
             <article class="testimonial-card" v-for="testimonial in siteInfo.testimonials" :key="testimonial.id">
               <div class="testimonial-header">
@@ -256,6 +296,8 @@
                   :src="getTestimonialAvatarUrl(testimonial.author_icon_url)"
                   :alt="testimonial.author_name"
                   class="testimonial-avatar"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <span v-else class="testimonial-avatar testimonial-avatar--fallback">
                   {{ getTestimonialInitials(testimonial.author_name) }}
@@ -297,24 +339,24 @@ import defaultImage from '@/assets/rybache1.jpg';
 import { absoluteMediaUrl, setPageMeta } from '@/utils/seo';
 
 // Иконки преимуществ
-import iconShop from '@/assets/advantages/advantage-cafe.png';
-import iconPlace from '@/assets/advantages/advantage-trips.png';
-import iconGames from '@/assets/advantages/advantage-water.png';
-import iconBeach from '@/assets/advantages/advantage-beach.png';
-import iconJur from '@/assets/advantages/advantage-landmarks.png';
-import iconFootball from '@/assets/advantages/advantage-sport.png';
+import iconShop from '@/assets/advantages/advantage-cafe.webp';
+import iconPlace from '@/assets/advantages/advantage-trips.webp';
+import iconGames from '@/assets/advantages/advantage-water.webp';
+import iconBeach from '@/assets/advantages/advantage-beach.webp';
+import iconJur from '@/assets/advantages/advantage-landmarks.webp';
+import iconFootball from '@/assets/advantages/advantage-sport.webp';
 import iconBus from '@/assets/icons/bus-transportvehicle-svgrepo-com.svg';
 import iconCar from '@/assets/icons/car-transport-navigation-svgrepo-com.svg';
 import iconTransfer from '@/assets/icons/car-sedan-automobile-svgrepo-com.svg';
 import landmarkSea from '@/assets/landmarks/sea.jpg';
-import landmarkJurJur from '@/assets/landmarks/jurjur.jpg';
-import landmarkAlushta from '@/assets/landmarks/Alushta.jpg';
-import landmarkDemerdzhi from '@/assets/landmarks/demerji.jpg';
-import landmarkAivaz from '@/assets/landmarks/park.jpg';
-import landmarkSudak from '@/assets/landmarks/nowiy-swet.jpg';
+import landmarkJurJur from '@/assets/landmarks/jurjur.webp';
+import landmarkAlushta from '@/assets/landmarks/Alushta.webp';
+import landmarkDemerdzhi from '@/assets/landmarks/demerji.webp';
+import landmarkAivaz from '@/assets/landmarks/park.webp';
+import landmarkSudak from '@/assets/landmarks/nowiy-swet.webp';
 
 // Иллюстрация для блока FAQ
-import faqImage from '@/assets/qwshions.png';
+import faqImage from '@/assets/qwshions.webp';
 
 export default {
   components: {
@@ -324,6 +366,8 @@ export default {
   data() {
     return {
       isLoading: false,
+      roomsLoading: true,
+      siteInfoLoading: true,
       urldata: null,
       rooms: [],
       filteredRooms: [],
@@ -422,14 +466,13 @@ export default {
       image: absoluteMediaUrl(this.siteInfo?.main_photo),
       url: window.location.origin + '/'
     });
-    await this.fetchSiteInfo();
+    await this.fetchInitialData();
     setPageMeta({
       title: 'Виноградная Лоза - гостевой дом в Рыбачьем, Крым',
       description: 'Номера у моря в гостевом доме Виноградная Лоза: двор, пляж рядом, отдых с детьми и бронирование онлайн.',
       image: absoluteMediaUrl(this.siteInfo?.main_photo),
       url: window.location.origin + '/'
     });
-    await this.fetchAllRooms();
   },
   methods: {
     activeTerritoryPhoto(group) {
@@ -472,21 +515,33 @@ export default {
         track.scrollBy({ left: cardWidth * direction, behavior: 'smooth' });
       }
     },
+    async fetchInitialData() {
+      await Promise.allSettled([
+        this.fetchSiteInfo(),
+        this.fetchAllRooms()
+      ]);
+    },
     async fetchSiteInfo() {
+      this.siteInfoLoading = true;
       try {
         const response = await api.get('/site/');
         this.siteInfo = response.data;
       } catch (error) {
         console.error('Ошибка загрузки информации о сайте:', error);
         this.siteInfo = {};
+      } finally {
+        this.siteInfoLoading = false;
       }
     },
     async fetchAllRooms() {
+      this.roomsLoading = true;
       try {
         const response = await api.get('/rooms/');
         this.rooms = response.data;
       } catch (error) {
         console.error('Ошибка загрузки комнат:', error);
+      } finally {
+        this.roomsLoading = false;
       }
     },
     async handleSearch(searchData) {
@@ -574,6 +629,107 @@ export default {
   margin-left: auto;
   margin-right: auto;
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* ======================================
+   CONTENT SKELETONS
+   ====================================== */
+.content-skeleton,
+.faq-skeleton,
+.testimonial-card--skeleton {
+  pointer-events: none;
+}
+
+.skeleton-block,
+.skeleton-line,
+.skeleton-dot,
+.skeleton-circle {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #ececf4 0%, #f8f7ff 46%, #ececf4 100%);
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.skeleton-line {
+  display: block;
+  width: 100%;
+  height: 13px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-line + .skeleton-line {
+  margin-top: 12px;
+}
+
+.skeleton-line--wide { width: 92%; }
+.skeleton-line--mid { width: 70%; }
+.skeleton-line--short { width: 48%; }
+.skeleton-line--tiny { width: 34%; }
+
+.skeleton-dot {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-circle {
+  border-radius: var(--radius-full);
+}
+
+.about-text-skeleton {
+  max-width: 58ch;
+  padding: 6px 0;
+}
+
+.territory-group-card--skeleton {
+  cursor: default;
+}
+
+.territory-groups--loading .territory-group-main {
+  background: transparent;
+}
+
+.territory-groups--loading .territory-thumb {
+  min-height: 74px;
+  border: 0;
+}
+
+.faq-skeleton-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg) 0;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.testimonial-card--skeleton {
+  cursor: default;
+}
+
+.testimonial-card--skeleton:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.testimonial-author--skeleton {
+  flex: 1;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block,
+  .skeleton-line,
+  .skeleton-dot,
+  .skeleton-circle {
+    animation: none;
+  }
 }
 
 /* ======================================

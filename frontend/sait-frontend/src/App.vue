@@ -5,7 +5,7 @@
       <div class="main-nav-cont">
         <div class="nav-brand">
           <router-link to="/" class="nav-logo" @click="closeMobileMenu">
-            <img src="@/assets/kogo.png" alt="Виноградная Лоза" class="nav-logo-img">
+            <img src="@/assets/kogo.webp" alt="Виноградная Лоза" class="nav-logo-img">
           </router-link>
         </div>
 

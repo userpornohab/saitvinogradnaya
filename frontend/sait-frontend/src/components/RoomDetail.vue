@@ -1,6 +1,68 @@
 <template>
   <section class="room_detail">
-    <div v-if="room" class="room_detail_container">
+    <div v-if="roomLoading" class="room_detail_container room-detail-skeleton" aria-busy="true" aria-live="polite">
+      <div class="flex-titel">
+        <span class="skeleton-line skeleton-title"></span>
+        <span class="skeleton-button"></span>
+      </div>
+
+      <div class="room_img_container room_img_container--skeleton">
+        <div class="room_img main_img skeleton-block"></div>
+        <div v-for="item in 4" :key="'gallery-skeleton-' + item" class="room_img skeleton-block"></div>
+      </div>
+
+      <div class="room_detail_wrapper">
+        <div class="room_detail_wrapper_left">
+          <div class="room_detail_about">
+            <span class="skeleton-line skeleton-heading"></span>
+            <div class="info_about_room">
+              <span v-for="item in 4" :key="'info-skeleton-' + item" class="info_about_room_cont skeleton-pill"></span>
+            </div>
+            <div class="about-skeleton">
+              <span class="skeleton-line"></span>
+              <span class="skeleton-line"></span>
+              <span class="skeleton-line skeleton-line--short"></span>
+            </div>
+          </div>
+
+          <span class="skeleton-line skeleton-heading-small"></span>
+          <div class="room_detail_bed_info">
+            <div v-for="item in 2" :key="'bed-skeleton-' + item" class="bed bed--skeleton">
+              <span class="skeleton-icon"></span>
+              <span class="skeleton-line skeleton-line--tiny"></span>
+            </div>
+          </div>
+
+          <div class="room_detail_facilities">
+            <span class="skeleton-line skeleton-heading-small"></span>
+            <div class="facilities_grap">
+              <div v-for="item in 6" :key="'facility-skeleton-' + item" class="facilities_block facilities_block--skeleton">
+                <span class="skeleton-icon"></span>
+                <span class="skeleton-line skeleton-line--tiny"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rules-card rules-card--skeleton">
+            <span class="skeleton-line skeleton-heading-small"></span>
+            <span class="skeleton-line skeleton-line--mid"></span>
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line skeleton-line--short"></span>
+          </div>
+        </div>
+
+        <div class="room_detail_wrapper_right">
+          <div class="booking-form-skeleton">
+            <span class="skeleton-line skeleton-heading-small"></span>
+            <span class="skeleton-block skeleton-input"></span>
+            <span class="skeleton-block skeleton-input"></span>
+            <span class="skeleton-block skeleton-input skeleton-input--button"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="room" class="room_detail_container">
       <div class="flex-titel">
         <h1 class="room_detail_h1">{{ room.title }}</h1>
         <div class="lincto" @click="copyBookingLink">
@@ -21,7 +83,7 @@
           :class="['room_img', { main_img: photo.is_main }]"
           @click="openModal(index)" 
         >
-          <img :src="getPhotoUrl(photo.url)" :alt="room.title" />
+          <img :src="getPhotoUrl(photo.url)" :alt="room.title" loading="lazy" decoding="async" />
         </div>
       </div>
       <div class="room_detail_wrapper">
@@ -171,8 +233,10 @@
       </div>
     </div>
 
-    <div v-else>
-      <p>Загрузка данных о комнате...</p>
+    <div v-else-if="roomLoadError" class="room-detail-error">
+      <h2>Не удалось загрузить номер</h2>
+      <p>Проверьте подключение или попробуйте открыть страницу ещё раз.</p>
+      <button type="button" @click="fetchRoomDetail">Повторить</button>
     </div>
       <div v-if="showCopiedNotification" class="copied-notification">
     Ссылка скопирована!
@@ -216,6 +280,8 @@ export default {
       isModalOpen: false,
       currentPhotoIndex: 0,
       room: null,
+      roomLoading: true,
+      roomLoadError: false,
       startDate: null,
       endDate: null,
       guestsCount: 1,
@@ -443,6 +509,8 @@ export default {
 
     async fetchRoomDetail() {
       const roomId = this.extractRoomId();
+      this.roomLoading = true;
+      this.roomLoadError = false;
       try {
         const response = await api.get(`/rooms/${roomId}/`);
         this.room = response.data;
@@ -450,6 +518,10 @@ export default {
 
       } catch (error) {
         console.error('Ошибка при загрузке данных о комнате:', error);
+        this.room = null;
+        this.roomLoadError = true;
+      } finally {
+        this.roomLoading = false;
       }
     },
     async fetchFAQ() {
@@ -1219,6 +1291,183 @@ li{
 }
 .room_detail_datapiker h3{
   margin: 16px 0;
+}
+
+/* Loading state */
+.room-detail-skeleton {
+  pointer-events: none;
+}
+
+.skeleton-block,
+.skeleton-line,
+.skeleton-button,
+.skeleton-pill,
+.skeleton-icon {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #ececf4 0%, #f8f7ff 46%, #ececf4 100%);
+  background-size: 220% 100%;
+  animation: room-detail-shimmer 1.35s ease-in-out infinite;
+}
+
+.skeleton-line {
+  display: block;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.skeleton-line + .skeleton-line {
+  margin-top: 12px;
+}
+
+.skeleton-title {
+  width: min(420px, 62vw);
+  height: 34px;
+  margin: 16px 0;
+}
+
+.skeleton-heading {
+  width: min(340px, 75%);
+  height: 26px;
+  margin-bottom: 20px;
+}
+
+.skeleton-heading-small {
+  width: min(260px, 66%);
+  height: 22px;
+  margin: 18px 0;
+}
+
+.skeleton-line--mid {
+  width: 72%;
+}
+
+.skeleton-line--short {
+  width: 48%;
+}
+
+.skeleton-line--tiny {
+  width: 88px;
+}
+
+.skeleton-button {
+  width: 50px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.room_img_container--skeleton .room_img {
+  cursor: default;
+}
+
+.room_img_container--skeleton .room_img::after {
+  display: none;
+}
+
+.skeleton-pill {
+  width: 88px;
+  height: 38px;
+  border-color: transparent;
+}
+
+.about-skeleton {
+  max-width: 640px;
+}
+
+.bed--skeleton,
+.facilities_block--skeleton {
+  cursor: default;
+}
+
+.skeleton-icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 10px;
+}
+
+.rules-card--skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.booking-form-skeleton {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(198, 196, 253, 0.55);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(24, 24, 27, 0.08);
+}
+
+.skeleton-input {
+  height: 58px;
+  border-radius: 14px;
+}
+
+.skeleton-input--button {
+  height: 48px;
+  border-radius: 999px;
+}
+
+.room-detail-error {
+  max-width: 620px;
+  margin: 80px auto;
+  padding: 32px;
+  text-align: center;
+  border: 1px solid rgba(198, 196, 253, 0.55);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff, #f8f7ff);
+}
+
+.room-detail-error h2 {
+  margin: 0 0 8px;
+}
+
+.room-detail-error p {
+  margin: 0 0 20px;
+  color: var(--color-gray-600);
+}
+
+.room-detail-error button {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #5651d8;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@keyframes room-detail-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block,
+  .skeleton-line,
+  .skeleton-button,
+  .skeleton-pill,
+  .skeleton-icon {
+    animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .room-detail-skeleton .flex-titel {
+    display: none;
+  }
+
+  .booking-form-skeleton {
+    position: static;
+    margin: 0 16px;
+  }
 }
 
 </style>
