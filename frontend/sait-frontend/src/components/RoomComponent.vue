@@ -80,6 +80,8 @@
                 </div>
               </div>
             </div>
+
+            <div class="room-details-pill">Подробнее</div>
             
             <div class="slider-controls" v-if="room.photos.length > 1" @click.stop>
               <button 
@@ -112,7 +114,7 @@
           <div class="room-header">
             <div>
               <h4 >{{ room.title }}</h4>
-              <div>{{ room.floor }} этаж</div>
+              <div class="room-floor">{{ room.floor }} этаж</div>
             </div>
             
             <div class="price-range">
@@ -752,10 +754,16 @@ export default {
   margin-bottom: 6px;
 }
 
+.room-floor {
+  color: var(--color-gray-700);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 
 @media (max-width: 636px)  {
     .room-header{
-      font-size: 12px;
+      font-size: 14px;
     }
 
 
@@ -790,9 +798,43 @@ export default {
   padding: 0;
 }
 
+.room-details-pill {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  bottom: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.22s ease, visibility 0.22s ease, box-shadow 0.22s ease;
+}
+
 .price-range {
   display: flex;
   margin: 0;
+  color: var(--color-gray-900);
+  font-size: 0.98rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: right;
 }
 
 
@@ -810,7 +852,7 @@ export default {
   align-items: center;
   color: white;
   left: 14px;
-  right: 14px;
+  right: 132px;
   display: flex;
   position: absolute;
   bottom: 14px;
@@ -840,6 +882,12 @@ export default {
 .room:hover .convenience {
   opacity: 0;
   visibility:hidden
+}
+
+.room:hover .room-details-pill {
+  opacity: 1;
+  visibility: visible;
+  animation: details-pill-pulse 1.45s ease-in-out infinite;
 }
 
 .slider-arrow {
@@ -882,11 +930,14 @@ export default {
 
 .slider-dots {
   position: absolute;
-  bottom: 12px;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 6px;
   padding: 4px 8px;
   border-radius: 20px;
+  z-index: 11;
 }
 
 .dot {
@@ -904,6 +955,33 @@ export default {
 
 .dot:hover {
   background: #2980b9;
+}
+
+@keyframes details-pill-pulse {
+  0%, 100% {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  }
+  50% {
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3), 0 0 0 6px rgba(255, 255, 255, 0.16);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .room-details-pill {
+    left: auto;
+    right: 14px;
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    animation: details-pill-pulse 1.45s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room:hover .room-details-pill,
+  .room-details-pill {
+    animation: none;
+  }
 }
 
 .h_room_number{

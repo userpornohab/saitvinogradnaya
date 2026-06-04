@@ -490,6 +490,7 @@ export default {
     },
     Clire() {
       this.urldata = null;
+      this.filteredRooms = [...this.rooms];
     },
     getTestimonialAvatarUrl(url) {
       if (!url) return '';

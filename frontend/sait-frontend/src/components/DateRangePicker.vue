@@ -1,5 +1,8 @@
 <template>
-  <div :class="{ 'single-month': singleMonth }" style="width: 100%; height: 100%;">
+  <div
+    :class="{ 'single-month': singleMonth, 'lazy-mobile-calendar': isMobile && lazyMobile }"
+    style="width: 100%; height: 100%;"
+  >
     <div class="head-cal-conter">
       <div class="head-cal">
             <div style="width: 100%; display: flex; margin-bottom: 10px; ">
@@ -104,12 +107,20 @@
         </div>
       </div>
     </div>
+    <div
+      v-if="canLoadMoreMonths"
+      ref="loadMoreTrigger"
+      class="calendar-load-trigger"
+      aria-hidden="true"
+    >
+      <span>Загружаем следующие месяцы...</span>
+    </div>
 
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue';
 
 export default {
 
@@ -144,6 +155,10 @@ export default {
     singleMonth: {            // Показывать только один месяц + стрелки (для room_detail_datapiker)
       type: Boolean,
       default: false
+    },
+    lazyMobile: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['update:startDate', 'update:endDate', 'clear', 'close'], // Добавлено событие close
@@ -151,6 +166,10 @@ export default {
     const currentYear = ref(new Date().getFullYear());
     const currentMonth = ref(new Date().getMonth());
     const hoverEndDate = ref(null);
+    const mobileMonthsToShow = ref(2);
+    const loadMoreTrigger = ref(null);
+    let loadObserver = null;
+    let loadLock = false;
 
     const months = [
       'Январь', 'Февраль', 'Март', 'Апрель', 
@@ -159,9 +178,27 @@ export default {
     ];
     const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-    // Генерация календарей: на мобильных показываем только один месяц
+    const maxMobileMonths = computed(() => {
+      const current = new Date();
+      const limit = new Date(current.getFullYear() + 2, current.getMonth());
+      const start = new Date(currentYear.value, currentMonth.value);
+      const diff = (limit.getFullYear() - start.getFullYear()) * 12 + limit.getMonth() - start.getMonth() + 1;
+      return Math.max(1, diff);
+    });
+
+    const canLoadMoreMonths = computed(() => (
+      props.isMobile &&
+      props.lazyMobile &&
+      !props.singleMonth &&
+      mobileMonthsToShow.value < maxMobileMonths.value
+    ));
+
+    // Генерация календарей: в мобильной форме бронирования месяцы подгружаются постепенно
     const calendars = computed(() => {
-      const monthsToShow = props.singleMonth ? 1 : (props.isMobile ? 12 : 2);
+      const mobileMonths = props.lazyMobile
+        ? Math.min(mobileMonthsToShow.value, maxMobileMonths.value)
+        : 12;
+      const monthsToShow = props.singleMonth ? 1 : (props.isMobile ? mobileMonths : 2);
       return Array.from({ length: monthsToShow }, (_, offset) => {
         const year = currentYear.value;
         const month = currentMonth.value + offset;
@@ -229,19 +266,6 @@ export default {
       return isShiftedOccupied || isCurrentOccupied;
     };
 
-    const selectDate = (date) => {
-      if (!props.startDate || props.endDate) {
-        emit('update:startDate', date);
-        emit('update:endDate', null);
-      } else if (date > props.startDate) {
-        emit('update:endDate', date);
-      } else {
-        emit('update:startDate', date);
-        emit('update:endDate', null);
-      }
-      hoverEndDate.value = null;
-    };
-
     const handleHover = (date) => {
       if (props.startDate && !props.endDate && date >= props.startDate) {
         hoverEndDate.value = date;
@@ -267,6 +291,29 @@ export default {
       });
     };
 
+    const isDateUnavailable = (date) => {
+      if (!date) return true;
+      const timestamp = date.getTime();
+      const isDisabled = timestamp < new Date().setHours(0,0,0,0) ||
+        isFutureLimit(date.getFullYear(), date.getMonth());
+      return isDisabled || isDateOccupied(date) || !hasPriceForDate(date);
+    };
+
+    const selectDate = (date) => {
+      if (isDateUnavailable(date)) return;
+
+      if (!props.startDate || props.endDate) {
+        emit('update:startDate', date);
+        emit('update:endDate', null);
+      } else if (date > props.startDate) {
+        emit('update:endDate', date);
+      } else {
+        emit('update:startDate', date);
+        emit('update:endDate', null);
+      }
+      hoverEndDate.value = null;
+    };
+
     const getDayClasses = (cell) => {
       if (!cell.date) return 'empty';
       const date = cell.date.getTime();
@@ -282,7 +329,7 @@ export default {
       const inHoverRange = props.startDate && hoverEndDate.value && 
                          date > props.startDate.getTime() && 
                          date < hoverEndDate.value.getTime();
-      const isDisabled = date < new Date().setHours(0,0,0,0) || 
+      const isDisabled = date < new Date().setHours(0,0,0,0) ||
                         isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
       const isOccupied = isDateOccupied(cell.date);
       const noPrice = !hasPriceForDate(cell.date);
@@ -343,10 +390,57 @@ export default {
       }
     };
 
+    const loadMoreMonths = () => {
+      if (!canLoadMoreMonths.value || loadLock) return;
+      loadLock = true;
+      mobileMonthsToShow.value = Math.min(mobileMonthsToShow.value + 2, maxMobileMonths.value);
+      window.setTimeout(() => {
+        loadLock = false;
+      }, 120);
+    };
+
+    const setupLazyObserver = async () => {
+      await nextTick();
+
+      if (loadObserver) {
+        loadObserver.disconnect();
+        loadObserver = null;
+      }
+
+      if (!canLoadMoreMonths.value || !loadMoreTrigger.value || typeof IntersectionObserver === 'undefined') {
+        return;
+      }
+
+      loadObserver = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMoreMonths();
+        }
+      }, {
+        root: null,
+        rootMargin: '240px 0px',
+        threshold: 0
+      });
+
+      loadObserver.observe(loadMoreTrigger.value);
+    };
+
+    onMounted(setupLazyObserver);
+
+    onBeforeUnmount(() => {
+      if (loadObserver) {
+        loadObserver.disconnect();
+      }
+    });
+
+    watch(canLoadMoreMonths, setupLazyObserver);
+    watch(mobileMonthsToShow, setupLazyObserver);
+
     return {
       currentYear,
       currentMonth,
       calendars,
+      canLoadMoreMonths,
+      loadMoreTrigger,
       canShowPrev,
       canShowNext,
       years,
@@ -408,7 +502,7 @@ export default {
     display: none;
   }
   .calendar-grid {
-    padding: 20px 0 0 0 ;
+    padding: 12px 0 24px 0 ;
     flex-direction: column;
     align-items: center;
   }
@@ -581,6 +675,21 @@ export default {
   margin-bottom: 5px;
 }
 
+.calendar-load-trigger {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b8b98;
+  font-size: 13px;
+}
+
+.calendar-load-trigger span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f5f4ff;
+}
+
 .day:not(.disabled):not(.selected):hover {
   background-color: #ffffff;
   cursor: pointer;
@@ -634,6 +743,10 @@ export default {
 }
 
 .day {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   caret-color: transparent;
   box-sizing: border-box;
   width: 45px;
@@ -771,5 +884,61 @@ hr{
   .single-month .calendar-grid { padding: 0; }
   .single-month .weekday { display: block; }
   .single-month .weekday-mobail { display: none; }
+}
+
+@media (max-width: 768px) {
+  .lazy-mobile-calendar .navigation {
+    display: none;
+  }
+
+  .lazy-mobile-calendar .head-cal {
+    box-sizing: border-box;
+    position: sticky;
+    top: -10px;
+    padding: 20px 20px 0;
+    width: 100%;
+    background-color: #ffffff;
+    z-index: 10;
+  }
+
+  .lazy-mobile-calendar .calendar-grid {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 0 24px;
+    margin: 0;
+    overflow-x: hidden;
+  }
+
+  .lazy-mobile-calendar .calendar-wrapper {
+    width: 100%;
+    min-width: 0;
+    max-width: 360px;
+    box-sizing: border-box;
+    margin: 0 auto 22px;
+    color: #000000;
+  }
+
+  .lazy-mobile-calendar .calendar {
+    width: 100%;
+    max-width: 360px;
+    margin: 0 auto;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .lazy-mobile-calendar .day {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .lazy-mobile-calendar .day.start-date::before,
+  .lazy-mobile-calendar .day.end-date::before {
+    width: 42px;
+    height: 42px;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 </style>

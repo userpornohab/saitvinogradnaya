@@ -1114,7 +1114,7 @@ input[type="date"] {
   }
 
   .facilities_block {
-    padding: var(--spacing-sm) 4px;
+    padding: var(--spacing-sm) 6px;
     justify-content:flex-start;
   }
 }

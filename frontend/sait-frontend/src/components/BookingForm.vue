@@ -54,7 +54,7 @@
       
       
       <transition name="datepicker-fade">
-        <div v-if="showDatePicker" class="datepicker-wrapper">
+        <div v-if="showDatePicker" class="datepicker-wrapper" @click.stop>
           <DateRangePicker
             :start-date="startDate"
             :end-date="endDate"
@@ -67,7 +67,7 @@
             @error="handleDateError"
             :price-periods="pricePeriods"
             :isMobile="isMobile"
-
+            :lazy-mobile="isMobile"
           />
         </div>
       </transition>
@@ -276,6 +276,9 @@ totalPrice() {
     },
     endDate() {
       this.emitBookingData();
+    },
+    showDatePicker() {
+      this.syncDatePickerScrollLock();
     }
   },
   methods: {
@@ -284,6 +287,7 @@ totalPrice() {
     },
     checkMobile() {
       this.isMobile = window.innerWidth <= 768;
+      this.syncDatePickerScrollLock();
       // Если это мобильное устройство, принудительно отключаем фиксацию
       if (this.isMobile) {
         this.isFixed = false;
@@ -381,6 +385,9 @@ totalPrice() {
       if (!this.$el.contains(event.target)) {
         this.showDatePicker = false;
       }
+    },
+    syncDatePickerScrollLock() {
+      document.body.style.overflow = this.showDatePicker && this.isMobile ? 'hidden' : '';
     }
   },  
   async mounted() {
@@ -395,6 +402,7 @@ totalPrice() {
     window.removeEventListener("resize", this.checkMobile);
     document.removeEventListener('click', this.handleClickOutside);
     window.removeEventListener('keydown', (e) => this.handleKeyPress(e));
+    document.body.style.overflow = '';
   }
 };
 </script>
@@ -558,14 +566,19 @@ h6{
 
 .datepicker-fade-enter-active,
 .datepicker-fade-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .datepicker-fade-enter-from,
 .datepicker-fade-leave-to {
-  transition: all 0.6s ease;
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(8px) scale(0.985);
+}
+
+.datepicker-fade-enter-to,
+.datepicker-fade-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .error-message {
@@ -620,17 +633,32 @@ h6{
 /* Мобильная адаптация для календаря */
 @media (max-width: 768px) {
   .datepicker-wrapper {
-    width: 100vw;
-    left: 50%;
-    right: auto;  
-
-
-    transform: translateX(-50%);
-    top: 50%;
-    transform: translate(-50%, -50%);
     position: fixed;
-    height: 100vh;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    right: auto;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    box-sizing: border-box;
+    transform: translateX(-50%);
+    border-radius: 0;
+    padding: 10px 12px calc(18px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .datepicker-fade-enter-from,
+  .datepicker-fade-leave-to {
+    transform: translateX(-50%) translateY(12px);
+  }
+
+  .datepicker-fade-enter-to,
+  .datepicker-fade-leave-from {
+    transform: translateX(-50%) translateY(0);
   }
 }
 </style>

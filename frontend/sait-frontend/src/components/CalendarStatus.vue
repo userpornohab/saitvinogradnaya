@@ -28,8 +28,8 @@ export default {
 
     // Общая функция проверки сроков
     const checkStayDuration = (diffDays) => {
-      if (diffDays < 3) return 'Минимальный срок бронирования - 3 ночи';
-      if (diffDays > 90) return 'Максимальный срок бронирования - 90 ночей';
+      if (diffDays < 3) return 'Бронирование от 3 ночей';
+      if (diffDays > 90) return 'Бронирование до 90 ночей';
       return null;
     };
 

@@ -439,6 +439,22 @@ body {
   font-family: var(--font-family-base);
 }
 
+@media (hover: none) and (pointer: coarse) {
+  a,
+  button,
+  .room,
+  .mobile-menu-link,
+  .nav-section-link,
+  .slider-arrow,
+  .dot,
+  .day {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* Когда открыт мобильный fullscreen-календарь — прячем шапку,
    чтобы бургер не перекрывал кнопку закрытия */
 body.calendar-fullscreen-open .main-nav {
