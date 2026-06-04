@@ -8,7 +8,7 @@
       <div class="photo-modal-content" @click.stop>
         <!-- Заголовок -->
         <div class="modal-header">
-          <h3 class="modal-title">{{ roomTitle }} — Фотографии</h3>
+          <h3 class="modal-title">{{ roomTitle }}</h3>
           <button class="modal-close" @click="closeModal">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"/>
