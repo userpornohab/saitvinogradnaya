@@ -207,8 +207,11 @@ export default {
     showNavigation() {
       // Скрываем навигацию на страницах входа/регистрации
       // На RoomDetail скрываем только на мобильных
-      if (this.$route.name === 'RoomDetail' && this.isMobileScreen) return false;
+      if (this.isRoomDetailPage && this.isMobileScreen) return false;
       return !['UserLogin'].includes(this.$route.name);
+    },
+    isRoomDetailPage() {
+      return ['RoomDetail', 'RoomDetailSlug'].includes(this.$route.name);
     },
     isHomePage() {
       return this.$route.name === 'Home';

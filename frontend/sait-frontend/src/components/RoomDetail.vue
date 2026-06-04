@@ -115,7 +115,7 @@
             </div>
           </div>
           <div class="room_detail_facilities">
-            <h3 class="facilities_h3">В номере есть</h3>
+            <h3 class="facilities_h3">Удобства</h3>
             <div
               class="facilities_grap"
             >
@@ -169,7 +169,7 @@
 
             <div class="rules-section">
               <h3>Условия отмены</h3>
-              <p>По договорённости с владельцем</p>
+              <p>Вы можете бесплатно отменить бронирование, если сообщите нам об этом не позднее чем за 2 недели до заезда.</p>
             </div>
           </div>
 
@@ -177,12 +177,14 @@
             <h3>Календарь</h3>
             <div class="room-calendar">
               <DateRangePicker
-                v-model:startDate="startDate"
-                v-model:endDate="endDate"
+                :start-date="startDate"
+                :end-date="endDate"
                 v-model:error="searchError"
                 :occupied-dates="occupiedDates"
                 :number-of-rooms="room.number_of_rooms"
                 :price-periods="room.price_periods"
+                @update:startDate="handleRoomCalendarStartDateUpdate"
+                @update:endDate="handleRoomCalendarEndDateUpdate"
                 @clear="handleClear"
                 :no-margin="true"
                 :single-month="isMobile"
@@ -293,6 +295,7 @@ export default {
       showAllFacilities: false,
       defaultVisibleAmenities: 6,
       initialLoad: true,
+      roomCalendarAwaitingEndDate: false,
       isMobile: false, // Добавляем свойство для определения мобильного устройства
       accordionItems: [],
       telegramModalOpen: false,
@@ -310,13 +313,8 @@ export default {
     startDate() {
       if (!this.initialLoad) this.updateUrlQuery();
     },
-    endDate(newVal) {
+    endDate() {
       if (!this.initialLoad) this.updateUrlQuery();
-      if (newVal && this.isMobile) {
-        this.$nextTick(() => {
-          this.$refs.bookingFormAnchor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-      }
     },
     guestsCount() {
       if (!this.initialLoad) this.updateUrlQuery();
@@ -555,6 +553,35 @@ export default {
       }
     },
 
+    handleRoomCalendarStartDateUpdate(newDate) {
+      this.roomCalendarAwaitingEndDate = Boolean(newDate);
+      this.startDate = newDate;
+    },
+
+    handleRoomCalendarEndDateUpdate(newDate) {
+      this.endDate = newDate;
+      if (this.roomCalendarAwaitingEndDate && this.isCompleteDateRange(newDate)) {
+        this.roomCalendarAwaitingEndDate = false;
+        this.scrollToBookingForm();
+      }
+    },
+
+    isCompleteDateRange(endDate = this.endDate) {
+      return Boolean(
+        !this.initialLoad &&
+        this.isMobile &&
+        this.startDate &&
+        endDate &&
+        endDate > this.startDate
+      );
+    },
+
+    scrollToBookingForm() {
+      this.$nextTick(() => {
+        this.$refs.bookingFormAnchor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    },
+
     toggleAccordion(index) {
       // Закрываем все элементы
       this.accordionItems.forEach((item, i) => {
@@ -624,6 +651,7 @@ export default {
       this.endDate = null;
       this.guestsCount = 1;
       this.searchError = null;
+      this.roomCalendarAwaitingEndDate = false;
     },
     
     toggleFacilities() {
@@ -1086,7 +1114,8 @@ input[type="date"] {
   }
 
   .facilities_block {
-    padding: var(--spacing-sm) 0;
+    padding: var(--spacing-sm) 4px;
+    justify-content:flex-start;
   }
 }
 
