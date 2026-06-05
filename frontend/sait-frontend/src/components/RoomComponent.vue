@@ -967,6 +967,19 @@ export default {
 }
 
 @media (hover: none) and (pointer: coarse) {
+  .slider-container .slider-wrapper {
+    transform: none !important;
+    transition: none;
+  }
+
+  .slider-container .slide:not(:first-child) {
+    display: none;
+  }
+
+  .slider-container .slider-controls {
+    display: none;
+  }
+
   .room-details-pill {
     left: auto;
     right: 14px;

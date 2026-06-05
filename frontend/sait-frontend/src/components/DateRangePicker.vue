@@ -99,8 +99,8 @@
             :key="cell.key"
             class="day"
             :class="getDayClasses(cell)"
-            @click="selectDate(cell.date)"
-            @mouseover="handleHover(cell.date)"
+            @click="selectDate(cell)"
+            @mouseover="handleHover(cell)"
           >
             {{ cell.day }}
           </div>
@@ -178,6 +178,74 @@ export default {
     ];
     const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+    const padDatePart = (value) => String(value).padStart(2, '0');
+
+    const dateKeyFromParts = (year, monthIndex, day) => (
+      `${year}-${padDatePart(monthIndex + 1)}-${padDatePart(day)}`
+    );
+
+    const dateKeyFromDate = (date) => dateKeyFromParts(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
+    const normalizedTimestamp = (date) => new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    ).getTime();
+
+    const parseDateOnly = (value) => {
+      if (!value) return null;
+      if (value instanceof Date) {
+        return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+      }
+
+      const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+      if (!year || !month || !day) return null;
+      return new Date(year, month - 1, day);
+    };
+
+    const todayTimestamp = computed(() => {
+      const today = new Date();
+      return new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    });
+
+    const occupiedDateKeys = computed(() => {
+      if (!props.numberOfRooms) return new Set();
+      return new Set(
+        Object.entries(props.occupiedDates || {})
+          .filter(([, count]) => count >= props.numberOfRooms)
+          .map(([dateKey]) => dateKey)
+      );
+    });
+
+    const pricedDateKeys = computed(() => {
+      if (!props.pricePeriods || props.pricePeriods.length === 0) return null;
+
+      const keys = new Set();
+      props.pricePeriods.forEach((period) => {
+        const start = parseDateOnly(period.start_date);
+        const end = parseDateOnly(period.end_date);
+        if (!start || !end || end < start) return;
+
+        const current = new Date(start);
+        while (current <= end) {
+          keys.add(dateKeyFromDate(current));
+          current.setDate(current.getDate() + 1);
+        }
+      });
+
+      return keys;
+    });
+
+    const selectionTimestamps = computed(() => ({
+      start: props.startDate ? normalizedTimestamp(props.startDate) : null,
+      end: props.endDate ? normalizedTimestamp(props.endDate) : null,
+      hover: hoverEndDate.value ? normalizedTimestamp(hoverEndDate.value) : null,
+    }));
+
     const maxMobileMonths = computed(() => {
       const current = new Date();
       const limit = new Date(current.getFullYear() + 2, current.getMonth());
@@ -221,15 +289,20 @@ export default {
       const days = [];
 
       for (let i = 0; i < emptyCells; i++) {
-        days.push({ day: '', key: `empty-${i}` });
+        days.push({ day: '', key: `${year}-${month}-empty-${i}` });
       }
 
       for (let day = 1; day <= daysInMonth; day++) {
         const dateObj = new Date(year, month, day);
+        const dateKey = dateKeyFromParts(year, month, day);
         days.push({
           day,
           date: dateObj,
-          key: `${year}-${month}-${day}`
+          dateKey,
+          timestamp: dateObj.getTime(),
+          year,
+          month,
+          key: dateKey
         });
       }
 
@@ -255,82 +328,51 @@ export default {
       return [current, current + 1, current + 2];
     });
 
-    const isDateOccupied = (date) => {
-      if (!props.numberOfRooms || !date) return false;
-      const currentDateStr = formatDate(date);
-      return (props.occupiedDates[currentDateStr] || 0) >= props.numberOfRooms;
+    const isDateOccupied = (cell) => {
+      if (!cell?.dateKey) return false;
+      return occupiedDateKeys.value.has(cell.dateKey);
     };
 
-    const handleHover = (date) => {
-      if (props.startDate && !props.endDate && canUseAsCheckoutDate(date)) {
-        hoverEndDate.value = date;
+    const handleHover = (cell) => {
+      if (props.isMobile || !cell?.date) return;
+      if (props.startDate && !props.endDate && cell.date >= props.startDate) {
+        hoverEndDate.value = cell.date;
       }
     };
 
-    const formatDate = (date) => {
-      return date.toLocaleDateString('en-CA', {
-        timeZone: 'Europe/Moscow',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
+    const hasPriceForDate = (cell) => {
+      if (!cell?.dateKey) return false;
+      return pricedDateKeys.value === null || pricedDateKeys.value.has(cell.dateKey);
     };
 
-    const hasPriceForDate = (date) => {
-      if (!props.pricePeriods || props.pricePeriods.length === 0) return true;
-      return props.pricePeriods.some(period => {
-        const start = new Date(period.start_date);
-        const end = new Date(period.end_date);
-        const dateObj = new Date(date);
-        return formatDate(dateObj) >= formatDate(start) && formatDate(dateObj) <= formatDate(end);
-      });
+    const isDateBlockedByBaseRules = (cell) => {
+      if (!cell?.date) return true;
+      return cell.timestamp < todayTimestamp.value ||
+        isFutureLimit(cell.year, cell.month);
     };
 
-    const isStayNightUnavailable = (date) => {
-      if (!date) return true;
-      const timestamp = date.getTime();
-      const isDisabled = timestamp < new Date().setHours(0,0,0,0) ||
-        isFutureLimit(date.getFullYear(), date.getMonth());
-      return isDisabled || isDateOccupied(date) || !hasPriceForDate(date);
-    };
-
-    const rangeHasUnavailableNights = (startDate, checkoutDate) => {
-      if (!startDate || !checkoutDate || checkoutDate <= startDate) return true;
-      const current = new Date(startDate);
-      const end = new Date(checkoutDate);
-      current.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
-
-      while (current < end) {
-        if (isStayNightUnavailable(current)) {
-          return true;
-        }
-        current.setDate(current.getDate() + 1);
-      }
-
-      return false;
-    };
-
-    const canUseAsCheckoutDate = (date) => (
+    const canUseAsCheckoutDate = (cell) => (
       props.startDate &&
       !props.endDate &&
-      date > props.startDate &&
-      !rangeHasUnavailableNights(props.startDate, date)
+      cell?.date > props.startDate &&
+      !isDateBlockedByBaseRules(cell) &&
+      hasPriceForDate(cell) &&
+      !isDateOccupied(cell)
     );
 
-    const selectDate = (date) => {
-      if (!date) return;
+    const selectDate = (cell) => {
+      if (!cell?.date) return;
 
       if (!props.startDate || props.endDate) {
-        if (isStayNightUnavailable(date)) return;
-        emit('update:startDate', date);
+        if (isDateBlockedByBaseRules(cell) || !hasPriceForDate(cell) || isDateOccupied(cell)) return;
+        emit('update:startDate', cell.date);
         emit('update:endDate', null);
-      } else if (date > props.startDate) {
-        if (!canUseAsCheckoutDate(date)) return;
-        emit('update:endDate', date);
+      } else if (cell.date > props.startDate) {
+        if (!canUseAsCheckoutDate(cell)) return;
+        emit('update:endDate', cell.date);
       } else {
-        if (isStayNightUnavailable(date)) return;
-        emit('update:startDate', date);
+        if (isDateBlockedByBaseRules(cell) || !hasPriceForDate(cell) || isDateOccupied(cell)) return;
+        emit('update:startDate', cell.date);
         emit('update:endDate', null);
       }
       hoverEndDate.value = null;
@@ -338,32 +380,31 @@ export default {
 
     const getDayClasses = (cell) => {
       if (!cell.date) return 'empty';
-      const date = cell.date.getTime();
-      const isStart = date === props.startDate?.getTime();
+      const date = cell.timestamp;
+      const { start: startTimestamp, end: endTimestamp, hover: hoverTimestamp } = selectionTimestamps.value;
+      const isStart = date === startTimestamp;
       const isValidEnd = props.endDate 
         ? props.endDate >= props.startDate 
-        : hoverEndDate.value >= props.startDate && canUseAsCheckoutDate(hoverEndDate.value);
-      const isEnd = (date === props.endDate?.getTime() && isValidEnd) 
-        || (!props.endDate && date === hoverEndDate.value?.getTime() && isValidEnd);
+        : hoverEndDate.value >= props.startDate;
+      const isEnd = (date === endTimestamp && isValidEnd)
+        || (!props.endDate && date === hoverTimestamp && isValidEnd);
       const inRange = props.startDate && props.endDate && 
-                    date > props.startDate.getTime() && 
-                    date < props.endDate.getTime();
+                    date > startTimestamp &&
+                    date < endTimestamp;
       const inHoverRange = props.startDate && hoverEndDate.value && 
-                         date > props.startDate.getTime() && 
-                         date < hoverEndDate.value.getTime();
-      const isDisabled = date < new Date().setHours(0,0,0,0) ||
-                        isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
-      const isOccupied = isDateOccupied(cell.date);
-      const noPrice = !hasPriceForDate(cell.date);
-      const isCheckoutBoundary = isEnd && !isStart;
+                         date > startTimestamp &&
+                         date < hoverTimestamp;
+      const isDisabled = isDateBlockedByBaseRules(cell);
+      const isOccupied = isDateOccupied(cell);
+      const noPrice = !hasPriceForDate(cell);
       const isUnavailable = isDisabled || noPrice || isOccupied;
 
       return {
         'selected': isStart || isEnd || inRange || inHoverRange,
         'start-date': isStart,
         'end-date': isEnd,
-        'occupied': isOccupied && !isDisabled && !isCheckoutBoundary,
-        'disabled': isUnavailable && !isCheckoutBoundary,
+        'occupied': isOccupied && !isDisabled,
+        'disabled': isUnavailable,
       };
     };
 
@@ -714,11 +755,13 @@ export default {
   background: #f5f4ff;
 }
 
-.day:not(.disabled):not(.selected):hover {
-  background-color: #ffffff;
-  cursor: pointer;
-  border: 1px solid #000000;
-  border-radius: 50%;
+@media (hover: hover) and (pointer: fine) {
+  .day:not(.disabled):not(.selected):hover {
+    background-color: #ffffff;
+    cursor: pointer;
+    border: 1px solid #000000;
+    border-radius: 50%;
+  }
 }
 
 

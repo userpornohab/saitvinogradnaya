@@ -18,7 +18,7 @@
 
         <div class="tg-modal-header">
           <h3 id="tg-modal-title" class="tg-modal-title">Информация о заявке</h3>
-          <p class="tg-modal-sub">Проверьте детали бронирования и свяжитесь с нами удобным способом.</p>
+          <p class="tg-modal-sub">На выбранные вами даты номер свободен и доступен для бронирования</p>
         </div>
 
         <dl class="tg-modal-details">
@@ -80,7 +80,7 @@
         </div>
 
         <p class="tg-disclaimer">
-          Выберите удобный способ связи.
+          Проверьте детали бронирования и свяжитесь с нами удобным способом.
         </p>
       </div>
     </div>

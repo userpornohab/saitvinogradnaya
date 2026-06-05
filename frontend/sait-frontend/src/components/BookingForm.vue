@@ -232,7 +232,7 @@ totalPrice() {
       return total;
     },
     showPrice() {
-      return this.totalPrice > 0 && !this.hasErrors && !this.selectedPeriodHasOccupiedDates && this.startDate && this.endDate;
+      return this.totalPrice > 0 && !this.hasErrors && this.startDate && this.endDate;
     },
     firstNightPrice() {
       // Цена за первые сутки (используется как предоплата)
@@ -270,7 +270,7 @@ totalPrice() {
       return false;
     },
     canBook() {
-      return !this.hasErrors && !this.selectedPeriodHasOccupiedDates && this.startDate && this.endDate && this.guestsCount > 0 && this.totalPrice > 0;
+      return !this.hasErrors && this.startDate && this.endDate && this.guestsCount > 0 && this.totalPrice > 0;
     },
     buttonTooltip() {
       if (!this.startDate || !this.endDate) return 'Выберите даты заезда и выезда';
