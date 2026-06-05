@@ -600,7 +600,6 @@ export default {
         const start = new Date(booking.check_in_date);
         const end = new Date(booking.check_out_date);
         let current = new Date(start);
-        end.setDate(end.getDate() - 1);
 
         while (current < end) {
           const dateStr = this.formatDate(current)

@@ -257,17 +257,12 @@ export default {
 
     const isDateOccupied = (date) => {
       if (!props.numberOfRooms || !date) return false;
-      const checkDate = new Date(date);
-      checkDate.setDate(date.getDate() - 1);
-      const checkDateStr = formatDate(checkDate);
       const currentDateStr = formatDate(date);
-      const isShiftedOccupied = (props.occupiedDates[checkDateStr] || 0) >= props.numberOfRooms;
-      const isCurrentOccupied = (props.occupiedDates[currentDateStr] || 0) >= props.numberOfRooms;
-      return isShiftedOccupied || isCurrentOccupied;
+      return (props.occupiedDates[currentDateStr] || 0) >= props.numberOfRooms;
     };
 
     const handleHover = (date) => {
-      if (props.startDate && !props.endDate && date >= props.startDate) {
+      if (props.startDate && !props.endDate && canUseAsCheckoutDate(date)) {
         hoverEndDate.value = date;
       }
     };
@@ -291,7 +286,7 @@ export default {
       });
     };
 
-    const isDateUnavailable = (date) => {
+    const isStayNightUnavailable = (date) => {
       if (!date) return true;
       const timestamp = date.getTime();
       const isDisabled = timestamp < new Date().setHours(0,0,0,0) ||
@@ -299,15 +294,42 @@ export default {
       return isDisabled || isDateOccupied(date) || !hasPriceForDate(date);
     };
 
+    const rangeHasUnavailableNights = (startDate, checkoutDate) => {
+      if (!startDate || !checkoutDate || checkoutDate <= startDate) return true;
+      const current = new Date(startDate);
+      const end = new Date(checkoutDate);
+      current.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      while (current < end) {
+        if (isStayNightUnavailable(current)) {
+          return true;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      return false;
+    };
+
+    const canUseAsCheckoutDate = (date) => (
+      props.startDate &&
+      !props.endDate &&
+      date > props.startDate &&
+      !rangeHasUnavailableNights(props.startDate, date)
+    );
+
     const selectDate = (date) => {
-      if (isDateUnavailable(date)) return;
+      if (!date) return;
 
       if (!props.startDate || props.endDate) {
+        if (isStayNightUnavailable(date)) return;
         emit('update:startDate', date);
         emit('update:endDate', null);
       } else if (date > props.startDate) {
+        if (!canUseAsCheckoutDate(date)) return;
         emit('update:endDate', date);
       } else {
+        if (isStayNightUnavailable(date)) return;
         emit('update:startDate', date);
         emit('update:endDate', null);
       }
@@ -320,7 +342,7 @@ export default {
       const isStart = date === props.startDate?.getTime();
       const isValidEnd = props.endDate 
         ? props.endDate >= props.startDate 
-        : hoverEndDate.value >= props.startDate;
+        : hoverEndDate.value >= props.startDate && canUseAsCheckoutDate(hoverEndDate.value);
       const isEnd = (date === props.endDate?.getTime() && isValidEnd) 
         || (!props.endDate && date === hoverEndDate.value?.getTime() && isValidEnd);
       const inRange = props.startDate && props.endDate && 
@@ -333,13 +355,15 @@ export default {
                         isFutureLimit(cell.date.getFullYear(), cell.date.getMonth());
       const isOccupied = isDateOccupied(cell.date);
       const noPrice = !hasPriceForDate(cell.date);
+      const isCheckoutBoundary = isEnd && !isStart;
+      const isUnavailable = isDisabled || noPrice || isOccupied;
 
       return {
         'selected': isStart || isEnd || inRange || inHoverRange,
         'start-date': isStart,
         'end-date': isEnd,
-        'occupied': isOccupied && !isDisabled,
-        'disabled': isDisabled || noPrice || isOccupied,
+        'occupied': isOccupied && !isDisabled && !isCheckoutBoundary,
+        'disabled': isUnavailable && !isCheckoutBoundary,
       };
     };
 

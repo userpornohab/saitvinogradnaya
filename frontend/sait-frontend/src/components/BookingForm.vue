@@ -172,10 +172,9 @@ export default {
         const start = new Date(booking.check_in_date);
         const end = new Date(booking.check_out_date);
         let current = new Date(start);
-        end.setDate(end.getDate() - 1);
 
         while (current < end) {
-          const dateStr = current.toISOString().split('T')[0];
+          const dateStr = this.dateToDateKey(current);
           occupied[dateStr] = (occupied[dateStr] || 0) + 1;
           current.setDate(current.getDate() + 1);
         }
@@ -233,7 +232,7 @@ totalPrice() {
       return total;
     },
     showPrice() {
-      return this.totalPrice > 0 && !this.hasErrors && this.startDate && this.endDate;
+      return this.totalPrice > 0 && !this.hasErrors && !this.selectedPeriodHasOccupiedDates && this.startDate && this.endDate;
     },
     firstNightPrice() {
       // Цена за первые сутки (используется как предоплата)
@@ -254,8 +253,24 @@ totalPrice() {
       // }
       return this.dateError || this.guestsError;
     },
+    selectedPeriodHasOccupiedDates() {
+      if (!this.startDate || !this.endDate || !this.numberOfRooms) return false;
+      const current = new Date(this.startDate);
+      const end = new Date(this.endDate);
+      current.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      while (current < end) {
+        const dateStr = this.dateToDateKey(current);
+        if ((this.occupiedDates[dateStr] || 0) >= this.numberOfRooms) {
+          return true;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      return false;
+    },
     canBook() {
-      return !this.hasErrors && this.startDate && this.endDate && this.guestsCount > 0;
+      return !this.hasErrors && !this.selectedPeriodHasOccupiedDates && this.startDate && this.endDate && this.guestsCount > 0 && this.totalPrice > 0;
     },
     buttonTooltip() {
       if (!this.startDate || !this.endDate) return 'Выберите даты заезда и выезда';
@@ -342,6 +357,12 @@ totalPrice() {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       return `${day}.${month}.${year}`;
+    },
+    dateToDateKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     },
     dateDiffInDays(a, b) {
       const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());

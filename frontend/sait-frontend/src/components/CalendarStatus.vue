@@ -45,7 +45,10 @@ export default {
       // Проверка на занятость
       const isDateOccupied = (date) => {
         if (!props.numberOfRooms || !date) return false;
-        const dateStr = date.toISOString().split('T')[0];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
         return (props.occupiedDates[dateStr] || 0) >= props.numberOfRooms;
       };
 
@@ -63,7 +66,7 @@ export default {
         let current = new Date(props.startDate);
         const end = new Date(props.endDate);
         
-        while (current <= end) {
+        while (current < end) {
           if (isDateOccupied(current)) {
             return 'Период содержит занятые даты';
           } 
