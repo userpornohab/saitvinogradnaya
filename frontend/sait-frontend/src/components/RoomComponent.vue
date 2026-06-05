@@ -990,13 +990,6 @@ export default {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .room:hover .room-details-pill,
-  .room-details-pill {
-    animation: none;
-  }
-}
-
 .h_room_number{
   font-size: 26px;
 }

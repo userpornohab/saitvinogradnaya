@@ -968,9 +968,9 @@ input[type="date"] {
   position: absolute;
   background: none;
   top: 20px;
-  padding: 4px 8px;
+  padding: 8px 8px;
   left: 20px;
-  border-radius: 16px;
+  border-radius: 50%;
   z-index: 10;
   background-color: #ffffffea;
   border: none;
@@ -1091,7 +1091,6 @@ input[type="date"] {
   .back-button-mobile {
     top: var(--spacing-md);
     left: var(--spacing-md);
-    padding: var(--spacing-xs) var(--spacing-sm);
   }
 }
 
