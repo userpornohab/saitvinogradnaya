@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 import os
 import uuid
+from pathlib import Path
+from utils.image_upload import save_raw_upload, ALLOWED_RASTER_TYPES, ALLOWED_SVG_TYPES
 from fastapi import UploadFile, File, Form
 from database.database import get_db
 from schemas.room import BedOptionResponse
@@ -17,23 +19,13 @@ async def create_bed_option(
     icon: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    # Генерация уникального имени файла
-    upload_dir = "static/icons"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    file_ext = os.path.splitext(icon.filename)[1]
-    filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = os.path.join(upload_dir, filename)
-    
-    # Сохранение файла
-    with open(file_path, "wb") as buffer:
-        content = await icon.read()
-        buffer.write(content)
+    file_path = (await save_raw_upload(icon, Path("static/icons"), "icon",
+                 ALLOWED_RASTER_TYPES | ALLOWED_SVG_TYPES)).lstrip("/")
     
     # Создание записи в БД
     bed_option = BedOption(
         name=name,
-        icon=f"static/icons/{filename}"  # Сохраняем путь
+        icon=file_path
     )
     
     db.add(bed_option)

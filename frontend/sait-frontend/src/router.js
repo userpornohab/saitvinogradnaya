@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import RoomDetail from '@/components/RoomDetail.vue';
+const RoomDetail = () => import('@/components/RoomDetail.vue');
 import MainStr from '@/components/MainStr.vue';
-import UserLogin  from '@/components/Auth/UserLogin.vue';
-import AdminRooms from '@/components/AdminRooms.vue';
-import AdminSitePanel from '@/components/AdminSitePanel.vue';
-import StatisticksBooking from '@/components/StatisticksBooking.vue'
-import NotFound from '@/components/NotFound.vue'
+const UserLogin = () => import('@/components/Auth/UserLogin.vue');
+const AdminRooms = () => import('@/components/AdminRooms.vue');
+const AdminSitePanel = () => import('@/components/AdminSitePanel.vue');
+const StatisticksBooking = () => import('@/components/StatisticksBooking.vue');
+const NotFound = () => import('@/components/NotFound.vue');
 
 import api from '@/api';
 
@@ -125,6 +125,12 @@ const router = createRouter({
 
     return { top: 0, left: 0 };
   },
+});
+
+router.afterEach((to) => {
+  const robots = document.querySelector('meta[name="robots"]');
+  if (robots) robots.content = to.path.startsWith('/admin') || to.path === '/login'
+    || to.name === 'NotFound' ? 'noindex, nofollow' : 'index, follow';
 });
 
 export default router;

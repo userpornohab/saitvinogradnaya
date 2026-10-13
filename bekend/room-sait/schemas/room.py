@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
 
 class PricePeriodBase(BaseModel):
@@ -145,9 +145,16 @@ class RoomResponse(RoomBase):
         orm_mode = True
 
 class RoomFilter(BaseModel):
-    guests: int
+    guests: int = Field(gt=0)
     check_in_date: date
     check_out_date: date
+
+    @model_validator(mode="after")
+    def validate_period(self):
+        nights = (self.check_out_date - self.check_in_date).days
+        if not 1 <= nights <= 730:
+            raise ValueError("Stay must be between 1 and 730 nights")
+        return self
 
 class CourtyardPhotoBase(BaseModel):
     url: str

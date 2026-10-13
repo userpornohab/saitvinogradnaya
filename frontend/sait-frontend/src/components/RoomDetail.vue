@@ -223,6 +223,8 @@
             @update:guestsCount="guestsCount = $event" 
             :price-periods="room.price_periods"
             :bookings="booking"
+            :availability-ready="bookingsReady"
+            :availability-error="bookingsError"
             :number-of-rooms="room.number_of_rooms"
             :max-guests="room.max_guests"
             :room-id="roomId"
@@ -291,6 +293,8 @@ export default {
       buttonText: 'Поделиться',
       showCopiedNotification: false,
       booking:[],
+      bookingsReady: false,
+      bookingsError: false,
       occupiedDates: {},
       showAllFacilities: false,
       defaultVisibleAmenities: 6,
@@ -537,6 +541,8 @@ export default {
 },
 
     async loadBookings() {
+      this.bookingsReady = false;
+      this.bookingsError = false;
       try {
         const resolvedRoomId = this.extractRoomId();
         const response = await api.get(`/bookings/rooms/${resolvedRoomId}`);
@@ -544,11 +550,13 @@ export default {
         // Обеспечиваем реактивность
         this.booking = response.data
         this.calculateOccupiedDates(response.data);
+        this.bookingsReady = true;
         this.setParamsFromUrl();
         this.initialLoad = false;
         
         
       } catch (error) {
+        this.bookingsError = true;
         console.error(error, 'Ошибка загрузки бронирований');
       }
     },

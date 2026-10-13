@@ -73,6 +73,10 @@ docker-compose.override.yml
 
 # Локальные данные Docker/SQLite
 data/
+backups/
+migration-backups/
+test-results/
+playwright-report/
 bekend/room-sait/data/
 
 # Новые файлы, загруженные через админку, должны жить в volume/backup, а не в git

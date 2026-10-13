@@ -10,10 +10,15 @@ from database.database import get_db
 from models.room import Room, RoomPhoto, PricePeriod, Amenity, RoomAmenity, RoomBedOption, BedOption
 from schemas.room import RoomResponse, RoomCreate, RoomPhotoBase, RoomPhotoResponse, RoomFilter, RoomUpdate, RoomBase, RoomPhotoOrderItem
 from auth.dependencies import check_superuser
-from utils.availability import is_room_available_for_period
+from utils.availability import available_room_ids
 from utils.image_upload import save_upload_image
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
+
+ROOM_LOAD_OPTIONS = (
+    selectinload(Room.photos), selectinload(Room.price_periods),
+    selectinload(Room.amenities), selectinload(Room.bed_options),
+)
 
 @router.post("/", response_model=RoomResponse, dependencies=[Depends(check_superuser)])
 def create_room(room_data: RoomCreate, db: Session = Depends(get_db)):
@@ -100,11 +105,7 @@ async def upload_photos(
 @router.get("/{room_id}", response_model=RoomResponse)
 def get_room(room_id: int, db: Session = Depends(get_db)):
     room = db.query(Room)\
-        .options(
-            selectinload(Room.photos),
-            joinedload(Room.price_periods),
-            joinedload(Room.amenities)
-        )\
+        .options(*ROOM_LOAD_OPTIONS)\
         .filter(Room.id == room_id)\
         .first()
     
@@ -125,13 +126,13 @@ def delete_room(room_id: int, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[RoomResponse])
 def get_all_rooms(db: Session = Depends(get_db)):
-    rooms = db.query(Room).options(selectinload(Room.photos)).all()
+    rooms = db.query(Room).options(*ROOM_LOAD_OPTIONS).all()
     for room in rooms:
         room.photos.sort(key=lambda photo: (photo.sort_order or 0, photo.id))
     return rooms
 
 
-@router.get("/admin/", response_model=List[RoomBase])
+@router.get("/admin/", response_model=List[RoomBase], dependencies=[Depends(check_superuser)])
 def get_all_rooms_smoll(db: Session = Depends(get_db)):
     return db.query(Room).all()
 
@@ -140,20 +141,21 @@ def get_all_rooms_smoll(db: Session = Depends(get_db)):
 @router.post("/filter", response_model=List[RoomResponse])
 def filter_rooms(filter_data: RoomFilter, db: Session = Depends(get_db)):
     # Получаем все комнаты, подходящие по количеству гостей
-    rooms = db.query(Room).filter(Room.max_guests >= filter_data.guests).all()
+    rooms = db.query(Room).options(*ROOM_LOAD_OPTIONS).filter(Room.max_guests >= filter_data.guests).all()
     available_rooms = []
+    available_ids = available_room_ids(db, rooms, filter_data.check_in_date, filter_data.check_out_date)
     
     # Вычисляем количество дней в запрашиваемом периоде
     total_days = (filter_data.check_out_date - filter_data.check_in_date).days
     
     for room in rooms:
         # Получаем все подходящие ценовые периоды
-        price_periods = db.query(PricePeriod).filter(
-            PricePeriod.room_id == room.id,
-            PricePeriod.number_of_guests >= filter_data.guests,
-            PricePeriod.end_date >= filter_data.check_in_date,
-            PricePeriod.start_date <= filter_data.check_out_date
-        ).all()
+        if room.id not in available_ids:
+            continue
+        price_periods = [period for period in room.price_periods
+                         if period.number_of_guests >= filter_data.guests
+                         and period.end_date >= filter_data.check_in_date
+                         and period.start_date < filter_data.check_out_date]
         
         # Проверяем, что все дни периода покрыты
         all_days_covered = True
@@ -175,13 +177,8 @@ def filter_rooms(filter_data: RoomFilter, db: Session = Depends(get_db)):
         if not all_days_covered:
             continue
         
-        if is_room_available_for_period(
-            db=db,
-            room=room,
-            check_in_date=filter_data.check_in_date,
-            check_out_date=filter_data.check_out_date,
-        ):
-            available_rooms.append(room)
+        room.photos.sort(key=lambda photo: (photo.sort_order or 0, photo.id))
+        available_rooms.append(room)
     
     return available_rooms
 

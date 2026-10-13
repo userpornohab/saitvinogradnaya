@@ -326,7 +326,7 @@ def get_bookings_by_room(
     return busy_periods
 
 
-@router.get("/booking-stats")
+@router.get("/booking-stats", dependencies=[Depends(check_superuser)])
 async def get_booking_statistics(
     start_date: date = Query(..., description="Начальная дата периода (YYYY-MM-DD)"),
     end_date: date = Query(..., description="Конечная дата периода (YYYY-MM-DD)"),
@@ -445,7 +445,7 @@ async def get_booking_statistics(
     }
 
 # Дополнительный эндпоинт для более детальной статистики
-@router.get("/booking-detailed-stats")
+@router.get("/booking-detailed-stats", dependencies=[Depends(check_superuser)])
 async def get_detailed_booking_statistics(
     start_date: date = Query(..., description="Начальная дата периода (YYYY-MM-DD)"),
     end_date: date = Query(..., description="Конечная дата периода (YYYY-MM-DD)"),

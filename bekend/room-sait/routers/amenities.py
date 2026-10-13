@@ -7,6 +7,8 @@ from schemas.room import AmenityBase
 from auth.dependencies import check_superuser
 import os
 import uuid
+from pathlib import Path
+from utils.image_upload import save_raw_upload, ALLOWED_RASTER_TYPES, ALLOWED_SVG_TYPES
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 router = APIRouter(prefix="/amenities", tags=["amenities"])
 
@@ -43,18 +45,8 @@ async def create_amenity(
     icon: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    # Генерация уникального имени файла
-    file_ext = os.path.splitext(icon.filename)[1]
-    filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = os.path.join("static/icons", filename)
-    
-    # Создание директории
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-    # Сохранение файла
-    with open(file_path, "wb") as buffer:
-        content = await icon.read()
-        buffer.write(content)
+    file_path = (await save_raw_upload(icon, Path("static/icons"), "icon",
+                 ALLOWED_RASTER_TYPES | ALLOWED_SVG_TYPES)).lstrip("/")
     
     # Создание записи
     amenity = Amenity(name=name, icon=file_path)

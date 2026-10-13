@@ -1,0 +1,38 @@
+name: Application checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bekend/room-sait
+    env:
+      SECRET_KEY: ci-test-secret-not-for-production-123456
+      DATABASE_URL: sqlite:///:memory:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r ../requirements-dev.txt
+      - run: python -m unittest discover -s tests
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/sait-frontend
+    env:
+      VUE_APP_API_URL: http://127.0.0.1:8000
+      VUE_APP_TELEGRAM_BOT: vinegrapebot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run lint -- --no-fix
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

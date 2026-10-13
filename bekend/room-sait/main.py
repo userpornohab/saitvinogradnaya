@@ -1,13 +1,14 @@
 # main.py
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends
+from auth.dependencies import check_superuser
+from contextlib import asynccontextmanager
+from database.migrate import upgrade_database
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import event
-from sqlalchemy import inspect, text
 from pathlib import Path
 
-from database.database import get_db, engine, Base
 from models.room import RoomPhoto
 from utils.image_upload import save_raw_upload
 from routers import (
@@ -19,10 +20,28 @@ from routers import (
     price_periods,
     site,
     analytics,
-    calendar_sync
+    calendar_sync,
+    public_pages
 )
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app):
+    upgrade_database()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware("http")
+async def response_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    if request.headers.get("authorization") or request.url.path == "/token/":
+        response.headers["Cache-Control"] = "no-store"
+    if request.url.path.startswith("/static/"):
+        response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'"
+    return response
 
 
 # Middleware для корректной схемы за Traefik (чтобы редиректы были https://)
@@ -56,7 +75,6 @@ app.add_middleware(
 
 # Монтирование статических файлов
 app.mount("/static", StaticFiles(directory="static"), name="static")
-Base.metadata.create_all(bind=engine)
 
 @app.get("/health", include_in_schema=False)
 def health_check():
@@ -69,43 +87,7 @@ ICON_DIR.mkdir(parents=True, exist_ok=True)  # Создаем директори
 UPLOAD_DIR = Path("static/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-def ensure_courtyard_photo_columns():
-    inspector = inspect(engine)
-    if "courtyard_photos" not in inspector.get_table_names():
-        return
-    columns = {column["name"] for column in inspector.get_columns("courtyard_photos")}
-    with engine.begin() as connection:
-        if "category" not in columns:
-            connection.execute(text("ALTER TABLE courtyard_photos ADD COLUMN category VARCHAR(30) DEFAULT 'yard'"))
-        if "sort_order" not in columns:
-            connection.execute(text("ALTER TABLE courtyard_photos ADD COLUMN sort_order INTEGER DEFAULT 0"))
-
-ensure_courtyard_photo_columns()
-
-def ensure_room_photo_columns():
-    inspector = inspect(engine)
-    if "room_photos" not in inspector.get_table_names():
-        return
-    columns = {column["name"] for column in inspector.get_columns("room_photos")}
-    with engine.begin() as connection:
-        if "sort_order" not in columns:
-            connection.execute(text("ALTER TABLE room_photos ADD COLUMN sort_order INTEGER DEFAULT 0"))
-
-ensure_room_photo_columns()
-
-def ensure_room_calendar_columns():
-    inspector = inspect(engine)
-    if "rooms" not in inspector.get_table_names():
-        return
-    columns = {column["name"] for column in inspector.get_columns("rooms")}
-    with engine.begin() as connection:
-        if "calendar_token" not in columns:
-            connection.execute(text("ALTER TABLE rooms ADD COLUMN calendar_token VARCHAR(64)"))
-        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_rooms_calendar_token ON rooms(calendar_token)"))
-
-ensure_room_calendar_columns()
-
-@app.post("/upload-icon")
+@app.post("/upload-icon", dependencies=[Depends(check_superuser)])
 async def upload_icon(file: UploadFile = File(...)):
     try:
         icon_url = await save_raw_upload(
@@ -131,6 +113,7 @@ app.include_router(price_periods.router)
 app.include_router(site.router)
 app.include_router(analytics.router)
 app.include_router(calendar_sync.router)
+app.include_router(public_pages.router)
 
 
 # Каскадное удаление файлов

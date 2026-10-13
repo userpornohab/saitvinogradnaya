@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Admin/login pages carry noindex headers. Crawling must remain allowed
+# so search engines can read these headers and remove old results.
+Sitemap: https://vinegrape.ru/sitemap.xml

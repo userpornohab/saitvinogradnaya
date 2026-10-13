@@ -79,7 +79,7 @@ export default {
 
     watch(error, (newError) => {
       emit('error', newError !== null);
-    });
+    }, { immediate: true });
 
     const selectedDaysInfo = computed(() => {
       if (!props.startDate) return 'Выберите начальную дату';

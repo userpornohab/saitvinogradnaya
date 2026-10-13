@@ -1,0 +1,230 @@
+{
+  "amenities": {
+    "columns": [
+      "id",
+      "name",
+      "icon"
+    ],
+    "create": "\nCREATE TABLE amenities (\n\tid INTEGER NOT NULL, \n\tname VARCHAR(50), \n\ticon VARCHAR(100), \n\tPRIMARY KEY (id), \n\tUNIQUE (name)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_amenities_id ON amenities (id)"
+    ]
+  },
+  "bed_options": {
+    "columns": [
+      "id",
+      "name",
+      "icon"
+    ],
+    "create": "\nCREATE TABLE bed_options (\n\tid INTEGER NOT NULL, \n\tname VARCHAR(50), \n\ticon VARCHAR(200), \n\tPRIMARY KEY (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_bed_options_id ON bed_options (id)"
+    ]
+  },
+  "rooms": {
+    "columns": [
+      "id",
+      "title",
+      "description",
+      "max_guests",
+      "number_of_rooms",
+      "title_dop",
+      "floor",
+      "area",
+      "calendar_token"
+    ],
+    "create": "\nCREATE TABLE rooms (\n\tid INTEGER NOT NULL, \n\ttitle VARCHAR(100), \n\tdescription TEXT, \n\tmax_guests INTEGER, \n\tnumber_of_rooms INTEGER, \n\ttitle_dop VARCHAR(100), \n\tfloor INTEGER, \n\tarea INTEGER, \n\tcalendar_token VARCHAR(64), \n\tPRIMARY KEY (id)\n)\n\n",
+    "indexes": [
+      "CREATE UNIQUE INDEX ix_rooms_calendar_token ON rooms (calendar_token)",
+      "CREATE INDEX ix_rooms_id ON rooms (id)"
+    ]
+  },
+  "site_info": {
+    "columns": [
+      "id",
+      "main_photo",
+      "main_description"
+    ],
+    "create": "\nCREATE TABLE site_info (\n\tid INTEGER NOT NULL, \n\tmain_photo VARCHAR(200), \n\tmain_description TEXT, \n\tPRIMARY KEY (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_site_info_id ON site_info (id)"
+    ]
+  },
+  "users": {
+    "columns": [
+      "id",
+      "email",
+      "name",
+      "hashed_password",
+      "is_active",
+      "is_superuser"
+    ],
+    "create": "\nCREATE TABLE users (\n\tid INTEGER NOT NULL, \n\temail VARCHAR(255), \n\tname VARCHAR(100) DEFAULT '' NOT NULL, \n\thashed_password VARCHAR(255), \n\tis_active BOOLEAN, \n\tis_superuser BOOLEAN, \n\tPRIMARY KEY (id)\n)\n\n",
+    "indexes": [
+      "CREATE UNIQUE INDEX ix_users_email ON users (email)",
+      "CREATE INDEX ix_users_id ON users (id)"
+    ]
+  },
+  "bookings": {
+    "columns": [
+      "id",
+      "room_id",
+      "check_in_date",
+      "check_out_date",
+      "number_of_guests",
+      "price",
+      "guest_name",
+      "guest_phone",
+      "guest_comment"
+    ],
+    "create": "\nCREATE TABLE bookings (\n\tid INTEGER NOT NULL, \n\troom_id INTEGER, \n\tcheck_in_date DATE, \n\tcheck_out_date DATE, \n\tnumber_of_guests INTEGER, \n\tprice FLOAT NOT NULL, \n\tguest_name VARCHAR(100), \n\tguest_phone VARCHAR(20), \n\tguest_comment TEXT, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_bookings_id ON bookings (id)"
+    ]
+  },
+  "calendar_sync_sources": {
+    "columns": [
+      "id",
+      "room_id",
+      "name",
+      "url",
+      "is_active",
+      "last_synced_at",
+      "last_error",
+      "created_at"
+    ],
+    "create": "\nCREATE TABLE calendar_sync_sources (\n\tid INTEGER NOT NULL, \n\troom_id INTEGER NOT NULL, \n\tname VARCHAR(100) NOT NULL, \n\turl TEXT NOT NULL, \n\tis_active BOOLEAN, \n\tlast_synced_at DATETIME, \n\tlast_error TEXT, \n\tcreated_at DATETIME, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_calendar_sync_sources_id ON calendar_sync_sources (id)",
+      "CREATE INDEX ix_calendar_sync_sources_room_id ON calendar_sync_sources (room_id)"
+    ]
+  },
+  "courtyard_photos": {
+    "columns": [
+      "id",
+      "url",
+      "category",
+      "sort_order",
+      "site_info_id"
+    ],
+    "create": "\nCREATE TABLE courtyard_photos (\n\tid INTEGER NOT NULL, \n\turl VARCHAR(200), \n\tcategory VARCHAR(30), \n\tsort_order INTEGER, \n\tsite_info_id INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(site_info_id) REFERENCES site_info (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_courtyard_photos_id ON courtyard_photos (id)"
+    ]
+  },
+  "faqs": {
+    "columns": [
+      "id",
+      "question",
+      "answer",
+      "site_info_id"
+    ],
+    "create": "\nCREATE TABLE faqs (\n\tid INTEGER NOT NULL, \n\tquestion TEXT, \n\tanswer TEXT, \n\tsite_info_id INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(site_info_id) REFERENCES site_info (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_faqs_id ON faqs (id)"
+    ]
+  },
+  "price_periods": {
+    "columns": [
+      "number_of_guests",
+      "id",
+      "start_date",
+      "end_date",
+      "price",
+      "room_id"
+    ],
+    "create": "\nCREATE TABLE price_periods (\n\tnumber_of_guests INTEGER, \n\tid INTEGER NOT NULL, \n\tstart_date DATE, \n\tend_date DATE, \n\tprice INTEGER, \n\troom_id INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_price_periods_id ON price_periods (id)"
+    ]
+  },
+  "room_amenities": {
+    "columns": [
+      "room_id",
+      "amenity_id"
+    ],
+    "create": "\nCREATE TABLE room_amenities (\n\troom_id INTEGER NOT NULL, \n\tamenity_id INTEGER NOT NULL, \n\tPRIMARY KEY (room_id, amenity_id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id), \n\tFOREIGN KEY(amenity_id) REFERENCES amenities (id)\n)\n\n",
+    "indexes": []
+  },
+  "room_bed_options": {
+    "columns": [
+      "room_id",
+      "bed_option_id"
+    ],
+    "create": "\nCREATE TABLE room_bed_options (\n\troom_id INTEGER NOT NULL, \n\tbed_option_id INTEGER NOT NULL, \n\tPRIMARY KEY (room_id, bed_option_id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id), \n\tFOREIGN KEY(bed_option_id) REFERENCES bed_options (id)\n)\n\n",
+    "indexes": []
+  },
+  "room_photos": {
+    "columns": [
+      "id",
+      "url",
+      "is_main",
+      "sort_order",
+      "room_id"
+    ],
+    "create": "\nCREATE TABLE room_photos (\n\tid INTEGER NOT NULL, \n\turl VARCHAR(200), \n\tis_main BOOLEAN, \n\tsort_order INTEGER, \n\troom_id INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_room_photos_id ON room_photos (id)"
+    ]
+  },
+  "site_events": {
+    "columns": [
+      "id",
+      "event_type",
+      "room_id",
+      "path",
+      "created_at"
+    ],
+    "create": "\nCREATE TABLE site_events (\n\tid INTEGER NOT NULL, \n\tevent_type VARCHAR(50), \n\troom_id INTEGER, \n\tpath VARCHAR(300), \n\tcreated_at DATETIME, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_site_events_event_type ON site_events (event_type)",
+      "CREATE INDEX ix_site_events_id ON site_events (id)",
+      "CREATE INDEX ix_site_events_created_at ON site_events (created_at)"
+    ]
+  },
+  "testimonial_images": {
+    "columns": [
+      "id",
+      "url",
+      "sort_order",
+      "site_info_id"
+    ],
+    "create": "\nCREATE TABLE testimonial_images (\n\tid INTEGER NOT NULL, \n\turl VARCHAR(200) NOT NULL, \n\tsort_order INTEGER, \n\tsite_info_id INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(site_info_id) REFERENCES site_info (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_testimonial_images_id ON testimonial_images (id)"
+    ]
+  },
+  "testimonials": {
+    "columns": [
+      "id",
+      "author_name",
+      "author_icon_url",
+      "comment",
+      "site_info_id"
+    ],
+    "create": "\nCREATE TABLE testimonials (\n\tid INTEGER NOT NULL, \n\tauthor_name VARCHAR(100), \n\tauthor_icon_url VARCHAR(200), \n\tcomment TEXT, \n\tsite_info_id INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(site_info_id) REFERENCES site_info (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_testimonials_id ON testimonials (id)"
+    ]
+  },
+  "calendar_sync_events": {
+    "columns": [
+      "id",
+      "source_id",
+      "room_id",
+      "uid",
+      "summary",
+      "start_date",
+      "end_date",
+      "imported_at"
+    ],
+    "create": "\nCREATE TABLE calendar_sync_events (\n\tid INTEGER NOT NULL, \n\tsource_id INTEGER NOT NULL, \n\troom_id INTEGER NOT NULL, \n\tuid VARCHAR(300) NOT NULL, \n\tsummary VARCHAR(300), \n\tstart_date DATE NOT NULL, \n\tend_date DATE NOT NULL, \n\timported_at DATETIME, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(source_id) REFERENCES calendar_sync_sources (id), \n\tFOREIGN KEY(room_id) REFERENCES rooms (id)\n)\n\n",
+    "indexes": [
+      "CREATE INDEX ix_calendar_sync_events_room_id ON calendar_sync_events (room_id)",
+      "CREATE INDEX ix_calendar_sync_events_source_id ON calendar_sync_events (source_id)",
+      "CREATE INDEX ix_calendar_sync_events_end_date ON calendar_sync_events (end_date)",
+      "CREATE INDEX ix_calendar_sync_events_id ON calendar_sync_events (id)",
+      "CREATE INDEX ix_calendar_sync_events_start_date ON calendar_sync_events (start_date)"
+    ]
+  }
+}

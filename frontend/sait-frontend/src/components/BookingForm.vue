@@ -73,7 +73,8 @@
       </transition>
 
       <div>
-        <CalendarStatus 
+        <p v-if="!availabilityReady" role="status">{{ availabilityError ? 'Не удалось проверить занятость. Обновите страницу.' : 'Проверяем занятость...' }}</p>
+        <CalendarStatus v-else
         class="status"
           :start-date="startDate"
           :end-date="endDate"
@@ -131,6 +132,8 @@ export default {
       type: Array,
       default: () => []
     },
+    availabilityReady: { type: Boolean, default: false },
+    availabilityError: { type: Boolean, default: false },
     numberOfRooms: {
       type: Number,
       default: 0
@@ -232,7 +235,7 @@ totalPrice() {
       return total;
     },
     showPrice() {
-      return this.totalPrice > 0 && !this.hasErrors && this.startDate && this.endDate;
+      return this.canBook;
     },
     firstNightPrice() {
       // Цена за первые сутки (используется как предоплата)
@@ -247,11 +250,10 @@ totalPrice() {
       return suitable.reduce((min, p) => (!min || p.price < min.price ? p : min), null).price;
     },
     hasErrors() {
-      // if (this.dateError){
-      //   this.$emit('update:startDate', null);
-      //   this.$emit('update:endDate', null);
-      // }
-      return this.dateError || this.guestsError;
+      const nights = this.startDate && this.endDate ? this.dateDiffInDays(this.startDate, this.endDate) : 0;
+      return this.dateError || this.guestsError || this.selectedPeriodHasOccupiedDates ||
+        !Number.isFinite(nights) || nights < 3 || nights > 90 ||
+        (this.startDate && this.startDate < new Date().setHours(0, 0, 0, 0));
     },
     selectedPeriodHasOccupiedDates() {
       if (!this.startDate || !this.endDate || !this.numberOfRooms) return false;
@@ -270,9 +272,12 @@ totalPrice() {
       return false;
     },
     canBook() {
-      return !this.hasErrors && this.startDate && this.endDate && this.guestsCount > 0 && this.totalPrice > 0;
+      return this.availabilityReady && !this.availabilityError && this.numberOfRooms > 0 &&
+        !this.hasErrors && this.startDate && this.endDate &&
+        this.guestsCount > 0 && this.guestsCount <= this.maxGuests && this.totalPrice > 0;
     },
     buttonTooltip() {
+      if (!this.availabilityReady) return 'Дождитесь проверки занятости';
       if (!this.startDate || !this.endDate) return 'Выберите даты заезда и выезда';
       if (this.guestsCount <= 0) return 'Укажите количество гостей';
       if (this.hasErrors) return 'Исправьте ошибки в форме';
@@ -416,13 +421,13 @@ totalPrice() {
     window.addEventListener("scroll", this.handleScroll);
     window.addEventListener("resize", this.checkMobile);
     document.addEventListener('click', this.handleClickOutside);
-    window.addEventListener('keydown', (e) => this.handleKeyPress(e));
+    window.addEventListener('keydown', this.handleKeyPress);
   },
   beforeUnmount() {
     window.removeEventListener("scroll", this.handleScroll);
     window.removeEventListener("resize", this.checkMobile);
     document.removeEventListener('click', this.handleClickOutside);
-    window.removeEventListener('keydown', (e) => this.handleKeyPress(e));
+    window.removeEventListener('keydown', this.handleKeyPress);
     document.body.style.overflow = '';
   }
 };

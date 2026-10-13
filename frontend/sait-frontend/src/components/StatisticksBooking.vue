@@ -315,10 +315,11 @@
 <script>
 import api from '@/api';
 import AdminHeader from './AdminHeader.vue';
+import ApexChartComponent from 'vue3-apexcharts';
 
 export default {
   name: 'BookingStatistics',
-  components: { AdminHeader },
+  components: { AdminHeader, ApexChartComponent },
   data() {
     return {
       selectedPeriod: 'week',
