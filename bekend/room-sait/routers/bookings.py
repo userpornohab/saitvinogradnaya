@@ -9,7 +9,9 @@ from database.database import get_db
 from models.room import Booking, CalendarSyncEvent, Room
 from schemas.room import BookingCreate, BookingResponse, BookingUpdate, BookingBase
 from auth.dependencies import check_superuser
-from utils.availability import is_room_available_for_period
+from utils.availability import is_room_available_for_period, active_holds
+from utils.inventory_lock import lock_inventory
+from models.guest import GuestReservation
 from utils.ical_sync import is_blocking_calendar_period
 from utils.price_calculator import calculate_booking_price
 
@@ -132,6 +134,9 @@ async def update_booking(
     db: Session = Depends(get_db),
     current_user: User = Depends(check_superuser)
 ):
+    lock_inventory(db)
+    if db.query(GuestReservation).filter_by(booking_id=booking_id).first():
+        raise HTTPException(409, "Оплаченную онлайн-бронь нельзя изменять здесь. Используйте раздел онлайн-бронирований.")
     # Только суперпользователь может изменять бронирования
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to modify bookings")
@@ -200,6 +205,7 @@ def create_booking(
     booking_data: BookingCreate,
     db: Session = Depends(get_db),
 ):
+    lock_inventory(db)
     # Валидация данных и создание бронирования
     if booking_data.number_of_guests is None:
         booking_data.number_of_guests = 1
@@ -265,6 +271,9 @@ def delete_booking(
     current_user: User = Depends(check_superuser)
 
 ):
+    lock_inventory(db)
+    if db.query(GuestReservation).filter_by(booking_id=booking_id).first():
+        raise HTTPException(409, "Сначала оформите отмену и возврат в разделе онлайн-бронирований")
     # Только суперпользователь может удалять бронирования
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete bookings")
@@ -313,6 +322,9 @@ def get_bookings_by_room(
     external_events = db.query(CalendarSyncEvent).filter(CalendarSyncEvent.room_id == room_id).all()
 
     busy_periods = list(bookings)
+    busy_periods.extend({"room_id": hold.room_id, "check_in_date": hold.check_in_date,
+                         "check_out_date": hold.check_out_date}
+                        for hold in active_holds(db).filter(GuestReservation.room_id == room_id))
     for event in external_events:
         if not is_blocking_calendar_period(event.summary or "", event.start_date, event.end_date):
             continue

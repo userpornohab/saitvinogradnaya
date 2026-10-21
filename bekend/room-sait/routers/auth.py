@@ -1,5 +1,5 @@
-from sqlite3 import IntegrityError
-from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -12,6 +12,7 @@ from auth.core import create_access_token
 from auth.dependencies import get_current_user, check_superuser
 from config import settings
 from passlib.context import CryptContext
+from utils.guest_security import limit
 
 router = APIRouter(tags=["auth"])
 
@@ -22,28 +23,20 @@ def verify_password(plain_password: str, hashed_password: str):
 
 @router.post("/register/", response_model=UserResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = pwd_context.hash(user.password)
-    new_user = User(
-        email=user.email,
-        hashed_password=hashed_password,
-        is_superuser=False
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+    raise HTTPException(410, "Используйте регистрацию гостя /guest/auth/register с подтверждением почты")
 
 @router.post("/token/", response_model=Token)
 def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    limit(db, "admin-login-ip", request.client.host, 60)
+    limit(db, "admin-login-email", form_data.username.lower(), 10)
+    if len(form_data.password.encode("utf-8")) > 72:
+        raise HTTPException(401, "Incorrect email or password")
     user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not user.is_active or not user.is_superuser or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -70,7 +63,7 @@ def update_user(
     user_id: int,
     user_update: UserUpdate,  # Use a separate UserUpdate schema
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_superuser)
 ):
     # Check permissions
     if current_user.id != user_id and not current_user.is_superuser:

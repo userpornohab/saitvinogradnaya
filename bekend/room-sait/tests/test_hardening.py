@@ -122,7 +122,7 @@ class ApiTests(unittest.TestCase):
             response = self.client.post("/rooms/filter", json={"guests": 2, "check_in_date": "2030-06-01", "check_out_date": "2030-06-30"})
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(len(response.json()), 21)
-            self.assertLessEqual(len(statements), 7)
+            self.assertLessEqual(len(statements), 8)
         finally:
             event.remove(self.engine, "before_cursor_execute", count)
 
@@ -198,6 +198,8 @@ class MigrationBackupTests(unittest.TestCase):
             with engine.begin() as connection:
                 connection.execute(text("INSERT INTO rooms (id, title) VALUES (1, 'keep me')"))
                 connection.execute(text("DROP TABLE deployment_schema_version"))
+                for table in ("guest_messages", "guest_reservations", "payment_settings", "guest_request_limits", "guest_tokens", "guest_sessions", "guest_profiles"):
+                    connection.execute(text(f"DROP TABLE {table}"))
                 connection.execute(text("ALTER TABLE room_photos DROP COLUMN sort_order"))
             upgrade_database(engine)
             upgrade_database(engine)

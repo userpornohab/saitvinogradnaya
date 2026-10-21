@@ -11,6 +11,15 @@ import api from '@/api';
 
 
 const routes = [
+  { path: '/account', name: 'GuestAccount', component: () => import('@/components/Guest/GuestAccount.vue') },
+  {
+    path: '/admin/online', name: 'AdminOnlineBookings', component: () => import('@/components/Guest/AdminOnlineBookings.vue'),
+    beforeEnter: async () => {
+      if (!localStorage.getItem('access_token')) return '/login';
+      try { return (await api.get('/users/me/')).data.is_superuser ? true : '/'; }
+      catch { return '/login'; }
+    }
+  },
   {
     path: '/room=:id',
     name: 'RoomDetail',
@@ -129,7 +138,7 @@ const router = createRouter({
 
 router.afterEach((to) => {
   const robots = document.querySelector('meta[name="robots"]');
-  if (robots) robots.content = to.path.startsWith('/admin') || to.path === '/login'
+  if (robots) robots.content = to.path.startsWith('/admin') || to.path === '/login' || to.path === '/account'
     || to.name === 'NotFound' ? 'noindex, nofollow' : 'index, follow';
 });
 

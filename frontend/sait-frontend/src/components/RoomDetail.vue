@@ -246,8 +246,7 @@
     Ссылка скопирована!
   </div>
 
-    <!-- Telegram booking confirmation modal -->
-    <TelegramBookingModal
+    <CheckoutModal
       v-if="telegramModalOpen"
       v-model="telegramModalOpen"
       :booking-data="telegramBookingData"
@@ -268,7 +267,7 @@ import api, { API_BASE_URL } from '@/api';
 import DateRangePicker from './DateRangePicker.vue';
 import BookingForm from './BookingForm.vue';
 import PhotoModal from './PhotoModal.vue';
-import TelegramBookingModal from './TelegramBookingModal.vue';
+import CheckoutModal from './Guest/CheckoutModal.vue';
 import { absoluteMediaUrl, getRoomPath, setPageMeta } from '@/utils/seo';
 
 export default {
@@ -276,7 +275,7 @@ export default {
     DateRangePicker,
     BookingForm,
     PhotoModal,
-    TelegramBookingModal,
+    CheckoutModal,
   },
 
   data() {

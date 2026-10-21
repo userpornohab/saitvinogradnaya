@@ -116,6 +116,11 @@ def get_room(room_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/{room_id}", response_model=RoomResponse, dependencies=[Depends(check_superuser)])
 def delete_room(room_id: int, db: Session = Depends(get_db)):
+    from models.guest import GuestReservation
+    from utils.inventory_lock import lock_inventory
+    lock_inventory(db)
+    if db.query(GuestReservation).filter_by(room_id=room_id).first():
+        raise HTTPException(409, "Номер связан с историей онлайн-бронирований и не может быть удалён")
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(404, "Room not found")

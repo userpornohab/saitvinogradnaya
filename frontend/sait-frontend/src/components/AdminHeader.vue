@@ -5,10 +5,12 @@
         v-for="item in navItems"
         :key="item.path"
         :to="item.path"
+        :aria-label="item.label"
+        :title="item.label"
         class="admin-nav-link"
         :class="{ 'admin-nav-link--active': isActive(item.path) }"
       >
-        <span class="admin-nav-icon">{{ item.icon }}</span>
+        <CreditCard v-if="item.path === '/admin/online'" :size="20" aria-hidden="true"/><span v-else class="admin-nav-icon">{{ item.icon }}</span>
         <span class="admin-nav-text">{{ item.label }}</span>
       </router-link>
     </nav>
@@ -22,7 +24,9 @@
 </template>
 
 <script>
+import { CreditCard } from '@lucide/vue';
 export default {
+  components: { CreditCard },
   name: 'AdminHeader',
   data() {
     return {
@@ -30,6 +34,7 @@ export default {
         { path: '/admin/rooms', label: 'Номера', icon: '🏨' },
         { path: '/admin/site', label: 'Сайт', icon: '🌐' },
         { path: '/admin/stats', label: 'Статистика', icon: '📊' },
+        { path: '/admin/online', label: 'Онлайн-брони' },
       ]
     }
   },

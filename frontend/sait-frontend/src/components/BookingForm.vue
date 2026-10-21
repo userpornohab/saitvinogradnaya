@@ -97,7 +97,7 @@
         :title="buttonTooltip"
         @click="handleBooking"
       >
-        Проверить
+        Забронировать
       </button>
       <div class="servis-mas">Пока вы ни за что не платите</div>
     </div>

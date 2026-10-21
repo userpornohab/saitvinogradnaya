@@ -1,5 +1,9 @@
 # Deploy
 
+Guest accounts and online payments: see [GUEST_BOOKING_SETUP.md](GUEST_BOOKING_SETUP.md)
+before enabling Robokassa. Payments are disabled by default; configure SMTP,
+separate test/live credentials, callback URLs and legal/fiscal settings first.
+
 ## Server prerequisites
 
 - Ubuntu server with Docker and Docker Compose plugin installed.
@@ -124,8 +128,8 @@ edit the frozen baseline or run the legacy `alembic upgrade head` on production.
 Before applying migrations, rehearse them on a temporary copy of the current DB:
 `python -m database.check_upgrade data/database.db` (or `database.db` locally).
 This verifies all existing rows and columns are preserved; the source is read-only.
-On the server, after building the backup image:
-`docker compose run --rm --no-deps --entrypoint python backup -m database.check_upgrade data/database.db`.
+On the server, after building the backend image:
+`docker compose run --rm --no-deps --entrypoint python backend -m database.check_upgrade data/database.db`.
 
 ## SEO and validation
 

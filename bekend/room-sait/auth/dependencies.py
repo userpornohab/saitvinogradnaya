@@ -19,7 +19,7 @@ async def get_current_user(
     )
     email = verify_token(token, credentials_exception)
     user = db.query(User).filter(User.email == email).first()
-    if user is None:
+    if user is None or not user.is_active:
         raise credentials_exception
     return user
 

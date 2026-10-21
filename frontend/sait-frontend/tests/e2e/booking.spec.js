@@ -20,6 +20,8 @@ async function fixtures(page, busy = false) {
     else if (path === '/bookings/rooms/1') json = busy ? [{ room_id: 1, check_in_date: '2030-06-21', check_out_date: '2030-06-23' }] : [];
     else if (path === '/users/me') json = { id: 1, email: 'admin@example.test', is_superuser: true };
     else if (path === '/token') json = { access_token: 'test-token', token_type: 'bearer' };
+    else if (path === '/guest/auth/session') return route.fulfill({ status: 401, json: { detail: 'Sign in' } });
+    else if (path === '/guest/booking-policy') json = { available: true, enabled: true, is_test: true, hold_minutes: 20 };
     else if (path === '/analytics/events') json = {};
     else if (path === '/bookings/booking-stats') json = {
       period: { start_date: '2030-05-25', end_date: '2030-06-01' }, filter: { room_title: 'Все комнаты' },
@@ -58,7 +60,7 @@ test('search transfers dates, calculates price and opens booking details', async
   await expect(page.locator('.book-button')).toBeEnabled();
   await page.locator('.book-button').click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.locator('.tg-btn--telegram')).toHaveAttribute('href', /https:\/\/t.me\//);
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Войти', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('booking.png'), fullPage: true });
 });

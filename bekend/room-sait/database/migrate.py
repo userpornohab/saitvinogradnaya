@@ -8,7 +8,7 @@ from sqlalchemy import inspect, text
 from database.database import engine
 from utils.backup import snapshot_database
 
-HEAD = "20261003_02"
+HEAD = "20261019_03"
 
 
 def upgrade_database(target_engine=engine):

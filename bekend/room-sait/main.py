@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import event
 from pathlib import Path
+from config import settings
 
 from models.room import RoomPhoto
 from utils.image_upload import save_raw_upload
@@ -21,7 +22,9 @@ from routers import (
     site,
     analytics,
     calendar_sync,
-    public_pages
+    public_pages,
+    guest_auth,
+    guest_bookings
 )
 
 @asynccontextmanager
@@ -37,8 +40,10 @@ app = FastAPI(lifespan=lifespan)
 async def response_security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    if request.headers.get("authorization") or request.url.path == "/token/":
+    if request.headers.get("authorization") or request.url.path == "/token/" or request.url.path.startswith(("/guest", "/payments/")):
         response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     if request.url.path.startswith("/static/"):
         response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'"
     return response
@@ -67,7 +72,7 @@ app.add_middleware(
         "http://10.7.0.5:8080",
         "https://vinegrape.ru",
         "http://vinegrape.ru",
-    ],
+    ] + [origin.strip() for origin in settings.GUEST_ALLOWED_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -114,6 +119,8 @@ app.include_router(site.router)
 app.include_router(analytics.router)
 app.include_router(calendar_sync.router)
 app.include_router(public_pages.router)
+app.include_router(guest_auth.router)
+app.include_router(guest_bookings.router)
 
 
 # Каскадное удаление файлов

@@ -1,15 +1,21 @@
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from models.room import Booking, CalendarSyncEvent, Room
+from models.guest import GuestReservation
 from utils.ical_sync import is_blocking_calendar_period
 
 
-def available_room_ids(db, rooms, check_in_date, check_out_date, exclude_booking_id=None):
-    """Check [arrival, departure) with two queries for the entire search."""
+def active_holds(db):
+    return db.query(GuestReservation).filter(GuestReservation.status == "awaiting_payment",
+        GuestReservation.is_test.is_(False), GuestReservation.expires_at > datetime.utcnow())
+
+
+def available_room_ids(db, rooms, check_in_date, check_out_date, exclude_booking_id=None, exclude_reservation_id=None):
+    """Check [arrival, departure) in batches, including unexpired payment holds."""
     if check_out_date <= check_in_date or not rooms:
         return set()
     ids = [room.id for room in rooms]
@@ -25,6 +31,14 @@ def available_room_ids(db, rooms, check_in_date, check_out_date, exclude_booking
     for room_id, start, end in query.all():
         changes[room_id][max(start, check_in_date)] += 1
         changes[room_id][min(end, check_out_date)] -= 1
+
+    holds = active_holds(db).filter(GuestReservation.room_id.in_(ids),
+        GuestReservation.check_in_date < check_out_date, GuestReservation.check_out_date > check_in_date)
+    if exclude_reservation_id is not None:
+        holds = holds.filter(GuestReservation.id != exclude_reservation_id)
+    for hold in holds:
+        changes[hold.room_id][max(hold.check_in_date, check_in_date)] += 1
+        changes[hold.room_id][min(hold.check_out_date, check_out_date)] -= 1
 
     events = db.query(CalendarSyncEvent).filter(
         CalendarSyncEvent.room_id.in_(ids),

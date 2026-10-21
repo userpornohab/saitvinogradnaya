@@ -21,6 +21,7 @@
         </div>
 
         <div class="nav-links">
+          <router-link to="/account" class="nav-link" @click="closeMobileMenu">Личный кабинет</router-link>
           <a href="tel:+79788028912" class="nav-phone" @click="handlePhoneClick">
             <img src="@/assets/icons/phone.svg" alt="Позвонить" class="nav-phone-icon">
           </a>
@@ -52,6 +53,7 @@
       <!-- Мобильное меню -->
       <transition name="mobile-menu">
         <div v-if="mobileMenuOpen" class="mobile-menu">
+          <router-link to="/account" class="mobile-menu-link" @click="closeMobileMenu">Личный кабинет</router-link>
           <template v-if="isHomePage">
             <a
               v-for="item in sectionLinks"
@@ -137,6 +139,7 @@
           <!-- Навигация -->
           <div class="footer-col footer-col--nav">
             <h4 class="footer-heading">Навигация</h4>
+            <router-link to="/account" class="footer-link">Личный кабинет</router-link>
             <a href="#rooms" class="footer-link">Номера</a>
             <a href="#about" class="footer-link">О нас</a>
             <a href="#faq" class="footer-link">Вопросы</a>
